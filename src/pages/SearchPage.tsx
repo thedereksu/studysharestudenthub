@@ -1,19 +1,35 @@
-import { useState } from "react";
-import { Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Upload } from "lucide-react";
 import ListingCard from "@/components/ListingCard";
-import { mockListings, subjects, materialTypes, exchangeTypes } from "@/data/mockData";
+import { subjects, materialTypes, exchangeTypes } from "@/lib/types";
+import { supabase } from "@/integrations/supabase/client";
+import type { Material } from "@/lib/types";
 
 const SearchPage = () => {
   const [search, setSearch] = useState("");
   const [activeSubject, setActiveSubject] = useState("All");
   const [activeType, setActiveType] = useState("All");
   const [activeExchange, setActiveExchange] = useState("All");
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockListings.filter((l) => {
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      const { data } = await supabase
+        .from("materials")
+        .select("*, profiles(*)")
+        .order("created_at", { ascending: false });
+      setMaterials((data as unknown as Material[]) || []);
+      setLoading(false);
+    };
+    fetchMaterials();
+  }, []);
+
+  const filtered = materials.filter((l) => {
     const matchesSearch = !search || l.title.toLowerCase().includes(search.toLowerCase()) || l.subject.toLowerCase().includes(search.toLowerCase());
     const matchesSubject = activeSubject === "All" || l.subject === activeSubject;
     const matchesType = activeType === "All" || l.type === activeType;
-    const matchesExchange = activeExchange === "All" || l.exchangeType === activeExchange;
+    const matchesExchange = activeExchange === "All" || l.exchange_type === activeExchange;
     return matchesSearch && matchesSubject && matchesType && matchesExchange;
   });
 
@@ -58,11 +74,17 @@ const SearchPage = () => {
       <FilterRow label="Exchange" options={exchangeTypes} active={activeExchange} onSelect={setActiveExchange} />
 
       <div className="grid grid-cols-2 gap-3 pb-6 mt-2">
-        {filtered.map((listing) => (
-          <ListingCard key={listing.id} listing={listing} />
-        ))}
-        {filtered.length === 0 && (
-          <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">No results found.</div>
+        {loading ? (
+          <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">
+            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+            No materials found.
+          </div>
+        ) : (
+          filtered.map((material) => (
+            <ListingCard key={material.id} material={material} />
+          ))
         )}
       </div>
     </div>

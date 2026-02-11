@@ -1,13 +1,29 @@
-import { useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, SlidersHorizontal, Upload } from "lucide-react";
 import ListingCard from "@/components/ListingCard";
-import { mockListings, subjects } from "@/data/mockData";
+import { supabase } from "@/integrations/supabase/client";
+import { subjects } from "@/lib/types";
+import type { Material } from "@/lib/types";
 
 const HomePage = () => {
   const [search, setSearch] = useState("");
   const [activeSubject, setActiveSubject] = useState("All");
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockListings.filter((l) => {
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      const { data } = await supabase
+        .from("materials")
+        .select("*, profiles(*)")
+        .order("created_at", { ascending: false });
+      setMaterials((data as unknown as Material[]) || []);
+      setLoading(false);
+    };
+    fetchMaterials();
+  }, []);
+
+  const filtered = materials.filter((l) => {
     const matchesSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
       l.subject.toLowerCase().includes(search.toLowerCase());
     const matchesSubject = activeSubject === "All" || l.subject === activeSubject;
@@ -16,13 +32,11 @@ const HomePage = () => {
 
   return (
     <div className="max-w-lg mx-auto px-4">
-      {/* Header */}
       <div className="pt-6 pb-4">
         <h1 className="text-2xl text-foreground">StudySwap</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Share knowledge, grow together</p>
       </div>
 
-      {/* Search */}
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
@@ -37,7 +51,6 @@ const HomePage = () => {
         </button>
       </div>
 
-      {/* Subject pills */}
       <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4">
         {subjects.map((subject) => (
           <button
@@ -54,15 +67,18 @@ const HomePage = () => {
         ))}
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-2 gap-3 pb-6">
-        {filtered.map((listing) => (
-          <ListingCard key={listing.id} listing={listing} />
-        ))}
-        {filtered.length === 0 && (
+        {loading ? (
+          <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">Loading...</div>
+        ) : filtered.length === 0 ? (
           <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">
-            No materials found. Try a different search or subject.
+            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+            No materials uploaded yet. Click "Post" to add your notes or study guides.
           </div>
+        ) : (
+          filtered.map((material) => (
+            <ListingCard key={material.id} material={material} />
+          ))
         )}
       </div>
     </div>
