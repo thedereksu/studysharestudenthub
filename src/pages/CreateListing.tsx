@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, CheckSquare, X, FileText, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Upload, X, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { subjects, materialTypes } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -10,79 +10,83 @@ import { supabase } from "@/integrations/supabase/client";
 const exchangeOptions = ["Free", "Trade", "Paid"];
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
 
+interface SelectedFile {
+  file: File;
+  preview: string | null;
+}
+
 const CreateListing = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [files, setFiles] = useState<SelectedFile[]>([]);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [type, setType] = useState("");
   const [exchange, setExchange] = useState("Free");
   const [description, setDescription] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
+    const selected = Array.from(e.target.files || []);
+    const valid: SelectedFile[] = [];
 
-    if (!ACCEPTED_TYPES.includes(selected.type)) {
-      toast({ title: "Unsupported file type", description: "Please upload JPG, PNG, HEIC, or PDF files.", variant: "destructive" });
-      return;
+    for (const file of selected) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        toast({ title: "Skipped unsupported file", description: `${file.name} is not a supported format.`, variant: "destructive" });
+        continue;
+      }
+      valid.push({
+        file,
+        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      });
     }
 
-    setFile(selected);
-    if (selected.type.startsWith("image/")) {
-      const url = URL.createObjectURL(selected);
-      setPreview(url);
-    } else {
-      setPreview(null);
-    }
-  };
-
-  const clearFile = () => {
-    setFile(null);
-    setPreview(null);
+    setFiles((prev) => [...prev, ...valid]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
-    if (!file || !title || !subject || !type || !confirmed || !user) {
-      toast({ title: "Please fill all fields, upload a file, and confirm the integrity checkbox", variant: "destructive" });
+    if (files.length === 0 || !user) {
+      toast({ title: "Please upload at least one file and sign in", variant: "destructive" });
       return;
     }
 
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
-      const filePath = `${user.id}/${Date.now()}.${ext}`;
+      for (const { file } of files) {
+        const ext = file.name.split(".").pop();
+        const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("materials")
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from("materials")
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("materials")
-        .getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage
+          .from("materials")
+          .getPublicUrl(filePath);
 
-      const { error: insertError } = await supabase.from("materials").insert({
-        uploader_id: user.id,
-        title,
-        subject,
-        type,
-        exchange_type: exchange,
-        description,
-        file_url: publicUrl,
-        file_type: file.type,
-      });
+        const { error: insertError } = await supabase.from("materials").insert({
+          uploader_id: user.id,
+          title: title || file.name,
+          subject: subject || "Other",
+          type: type || "Notes",
+          exchange_type: exchange,
+          description,
+          file_url: publicUrl,
+          file_type: file.type,
+        });
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
 
       toast({ title: "Material posted!", description: "Your study material is now live." });
       navigate("/");
@@ -95,12 +99,12 @@ const CreateListing = () => {
 
   const SelectPills = ({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) => (
     <div className="mb-5">
-      <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">{label}</label>
+      <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">{label} <span className="text-muted-foreground/60 normal-case font-normal">(optional)</span></label>
       <div className="flex flex-wrap gap-2">
         {options.filter((o) => o !== "All").map((opt) => (
           <button
             key={opt}
-            onClick={() => onChange(opt)}
+            onClick={() => onChange(value === opt ? "" : opt)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               value === opt ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
             }`}
@@ -126,41 +130,55 @@ const CreateListing = () => {
         ref={fileInputRef}
         type="file"
         accept=".jpg,.jpeg,.png,.heic,.pdf"
+        multiple
         onChange={handleFileSelect}
         className="hidden"
       />
 
-      {!file ? (
+      {files.length === 0 ? (
         <button
           onClick={() => fileInputRef.current?.click()}
           className="w-full border-2 border-dashed border-border rounded-lg aspect-video flex flex-col items-center justify-center gap-2 mb-5 bg-card hover:bg-muted/50 transition-colors"
         >
           <Upload className="w-8 h-8 text-muted-foreground" />
-          <span className="text-sm text-foreground font-medium">Upload File</span>
-          <span className="text-[10px] text-muted-foreground">JPG, PNG, HEIC, or PDF</span>
+          <span className="text-sm text-foreground font-medium">Upload Files</span>
+          <span className="text-[10px] text-muted-foreground">JPG, PNG, HEIC, or PDF · Multiple files supported</span>
         </button>
       ) : (
-        <div className="relative border border-border rounded-lg aspect-video mb-5 bg-card flex items-center justify-center overflow-hidden">
-          {preview ? (
-            <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <FileText className="w-10 h-10" />
-              <span className="text-sm font-medium">{file.name}</span>
-            </div>
-          )}
-          <button
-            onClick={clearFile}
-            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-foreground/80 text-background flex items-center justify-center"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        <div className="mb-5 space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {files.map((f, i) => (
+              <div key={i} className="relative border border-border rounded-lg aspect-square bg-card flex items-center justify-center overflow-hidden">
+                {f.preview ? (
+                  <img src={f.preview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground p-2">
+                    <FileText className="w-6 h-6" />
+                    <span className="text-[10px] font-medium truncate w-full text-center">{f.file.name}</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => removeFile(i)}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-foreground/80 text-background flex items-center justify-center"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-border rounded-lg aspect-square flex flex-col items-center justify-center gap-1 bg-card hover:bg-muted/50 transition-colors"
+            >
+              <Plus className="w-5 h-5 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">Add more</span>
+            </button>
+          </div>
         </div>
       )}
 
       {/* Title */}
       <div className="mb-5">
-        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Title</label>
+        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Title <span className="text-muted-foreground/60 normal-case font-normal">(optional)</span></label>
         <input
           type="text"
           placeholder="e.g. AP Bio Unit 3 Notes"
@@ -176,7 +194,7 @@ const CreateListing = () => {
 
       {/* Description */}
       <div className="mb-5">
-        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Description</label>
+        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Description <span className="text-muted-foreground/60 normal-case font-normal">(optional)</span></label>
         <textarea
           placeholder="Describe what's included in your study material..."
           value={description}
@@ -186,23 +204,8 @@ const CreateListing = () => {
         />
       </div>
 
-      {/* Integrity checkbox */}
-      <div className="bg-secondary rounded-lg p-4 mb-6">
-        <button
-          onClick={() => setConfirmed(!confirmed)}
-          className="flex items-start gap-3 text-left w-full"
-        >
-          <CheckSquare
-            className={`w-5 h-5 mt-0.5 flex-shrink-0 ${confirmed ? "text-primary" : "text-muted-foreground"}`}
-          />
-          <span className="text-xs text-foreground leading-relaxed">
-            I confirm this material is <strong>for studying purposes only</strong>. It does not contain active tests, quizzes, or graded homework assignments.
-          </span>
-        </button>
-      </div>
-
-      <Button className="w-full mb-8" onClick={handleSubmit} disabled={!confirmed || uploading}>
-        {uploading ? "Uploading..." : "Post Material"}
+      <Button className="w-full mb-8" onClick={handleSubmit} disabled={files.length === 0 || uploading}>
+        {uploading ? "Uploading..." : `Post Material${files.length > 1 ? `s (${files.length})` : ""}`}
       </Button>
     </div>
   );
