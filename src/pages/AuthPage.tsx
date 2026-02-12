@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { sanitizeError } from "@/lib/errors";
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -32,7 +33,7 @@ const AuthPage = () => {
         toast({ title: "Check your email", description: "We sent you a confirmation link." });
       }
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
     } finally {
       setLoading(false);
     }

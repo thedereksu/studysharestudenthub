@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { sanitizeError } from "@/lib/errors";
 import ListingCard from "@/components/ListingCard";
 import type { Material, Profile } from "@/lib/types";
 
@@ -48,7 +49,7 @@ const ProfilePage = () => {
     }).eq("id", user.id);
     setSaving(false);
     if (error) {
-      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to update", description: sanitizeError(error), variant: "destructive" });
     } else {
       setEditing(false);
       fetchData();
@@ -59,7 +60,7 @@ const ProfilePage = () => {
   const handleDeleteMaterial = async (materialId: string) => {
     const { error } = await supabase.from("materials").delete().eq("id", materialId);
     if (error) {
-      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete", description: sanitizeError(error), variant: "destructive" });
     } else {
       setMaterials((prev) => prev.filter((m) => m.id !== materialId));
       toast({ title: "Material deleted" });

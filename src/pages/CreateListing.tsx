@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, X, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { subjects, materialTypes } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { sanitizeError } from "@/lib/errors";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -91,7 +92,7 @@ const CreateListing = () => {
       toast({ title: "Material posted!", description: "Your study material is now live." });
       navigate("/");
     } catch (error: any) {
-      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+      toast({ title: "Upload failed", description: sanitizeError(error), variant: "destructive" });
     } finally {
       setUploading(false);
     }
