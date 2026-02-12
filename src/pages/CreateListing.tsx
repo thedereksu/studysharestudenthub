@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, X, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,14 @@ interface SelectedFile {
 const CreateListing = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [files, setFiles] = useState<SelectedFile[]>([]);
