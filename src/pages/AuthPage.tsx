@@ -30,7 +30,7 @@ const AuthPage = () => {
           options: { data: { name } },
         });
         if (error) throw error;
-        toast({ title: "Check your email", description: "We sent you a confirmation link." });
+        navigate("/");
       }
     } catch (error: any) {
       toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
