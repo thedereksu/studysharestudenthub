@@ -3,6 +3,7 @@ export interface Profile {
   name: string;
   school: string;
   bio: string;
+  credit_balance: number;
   created_at: string;
   updated_at: string;
 }
@@ -17,9 +18,28 @@ export interface Material {
   description: string;
   file_url: string;
   file_type: string;
+  credit_price: number;
   created_at: string;
   updated_at: string;
   profiles?: Profile;
+}
+
+export interface Conversation {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  created_at: string;
+  updated_at: string;
+  profiles_user1?: Profile;
+  profiles_user2?: Profile;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
 }
 
 export const subjects = ["All", "Biology", "Chemistry", "Mathematics", "Physics", "History", "English", "Computer Science", "Economics"];
