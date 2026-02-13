@@ -143,9 +143,15 @@ const ProfilePage = () => {
               </div>
             </div>
             {profile?.bio && <p className="text-sm text-muted-foreground leading-relaxed mb-4">{profile.bio}</p>}
-            <div className="bg-secondary rounded-lg p-3 text-center">
-              <span className="text-lg font-semibold text-foreground">{materials.length}</span>
-              <p className="text-[10px] text-muted-foreground">Materials Posted</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-secondary rounded-lg p-3 text-center">
+                <span className="text-lg font-semibold text-foreground">{materials.length}</span>
+                <p className="text-[10px] text-muted-foreground">Materials Posted</p>
+              </div>
+              <div className="bg-secondary rounded-lg p-3 text-center">
+                <span className="text-lg font-semibold text-foreground">{profile?.credit_balance ?? 0}</span>
+                <p className="text-[10px] text-muted-foreground">Credits</p>
+              </div>
             </div>
           </>
         )}

@@ -14,9 +14,49 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user1_id: string
+          user2_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user1_id: string
+          user2_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user1_id?: string
+          user2_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_user1_id_fkey"
+            columns: ["user1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_user2_id_fkey"
+            columns: ["user2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           created_at: string
+          credit_price: number
           description: string | null
           exchange_type: string
           file_type: string
@@ -30,6 +70,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          credit_price?: number
           description?: string | null
           exchange_type?: string
           file_type: string
@@ -43,6 +84,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          credit_price?: number
           description?: string | null
           exchange_type?: string
           file_type?: string
@@ -64,10 +106,50 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bio: string | null
           created_at: string
+          credit_balance: number
           id: string
           name: string
           school: string | null
@@ -76,6 +158,7 @@ export type Database = {
         Insert: {
           bio?: string | null
           created_at?: string
+          credit_balance?: number
           id: string
           name?: string
           school?: string | null
@@ -84,6 +167,7 @@ export type Database = {
         Update: {
           bio?: string | null
           created_at?: string
+          credit_balance?: number
           id?: string
           name?: string
           school?: string | null
@@ -91,12 +175,51 @@ export type Database = {
         }
         Relationships: []
       }
+      unlocks: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unlocks_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unlocks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      unlock_material: {
+        Args: { p_buyer_id: string; p_material_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

@@ -19,7 +19,11 @@ const ListingCard = ({ material }: { material: Material }) => {
     >
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center overflow-hidden">
         {isImage ? (
-          <img src={material.file_url} alt={material.title} className="w-full h-full object-cover blur-sm scale-110" />
+          <img
+            src={material.file_url}
+            alt={material.title}
+            className={`w-full h-full object-cover ${material.exchange_type === "Free" ? "" : "blur-sm scale-110"}`}
+          />
         ) : (
           <FileText className="w-8 h-8 text-muted-foreground" />
         )}
