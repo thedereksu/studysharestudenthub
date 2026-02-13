@@ -25,7 +25,7 @@ const ProfilePage = () => {
     if (!user) return;
     const [{ data: profileData }, { data: materialsData }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
-      supabase.from("materials").select("*, profiles(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
     ]);
     const p = profileData as Profile | null;
     setProfile(p);

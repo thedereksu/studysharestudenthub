@@ -15,10 +15,13 @@ const SearchPage = () => {
 
   useEffect(() => {
     const fetchMaterials = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("materials")
-        .select("*, profiles(*)")
+        .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
         .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Search query error:", error);
+      }
       setMaterials((data as unknown as Material[]) || []);
       setLoading(false);
     };
