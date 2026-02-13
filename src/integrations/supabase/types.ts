@@ -54,7 +54,15 @@ export type Database = {
           updated_at?: string
           uploader_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "materials_uploader_id_profiles_fkey"
+            columns: ["uploader_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
