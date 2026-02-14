@@ -1,17 +1,50 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Flag, Lock, BookOpen, FileText, Download, Eye, Coins } from "lucide-react";
+import { ArrowLeft, Flag, Lock, BookOpen, FileText, Download, Eye, Coins, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
-import type { Material } from "@/lib/types";
+import type { Material, MaterialFile, Review } from "@/lib/types";
 
 const exchangeBadgeClass: Record<string, string> = {
   Free: "bg-[hsl(var(--badge-free))] text-[hsl(var(--badge-free-text))]",
   Trade: "bg-[hsl(var(--badge-trade))] text-[hsl(var(--badge-trade-text))]",
   Paid: "bg-[hsl(var(--badge-paid))] text-[hsl(var(--badge-paid-text))]",
+};
+
+const StarRating = ({ rating, onRate, interactive = false }: { rating: number; onRate?: (r: number) => void; interactive?: boolean }) => (
+  <div className="flex gap-0.5">
+    {[1, 2, 3, 4, 5].map((star) => (
+      <button
+        key={star}
+        disabled={!interactive}
+        onClick={() => onRate?.(star)}
+        className={interactive ? "cursor-pointer hover:scale-110 transition-transform" : "cursor-default"}
+      >
+        <Star
+          className={`w-5 h-5 ${star <= rating ? "fill-primary text-primary" : "text-muted-foreground/30"}`}
+        />
+      </button>
+    ))}
+  </div>
+);
+
+const FileItem = ({ file, canAccess }: { file: MaterialFile; canAccess: boolean }) => {
+  const isImage = file.file_type.startsWith("image/");
+  return (
+    <a
+      href={canAccess ? file.file_url : undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex items-center gap-3 bg-secondary rounded-lg p-3 ${canAccess ? "hover:bg-muted" : "opacity-50 pointer-events-none"} transition-colors`}
+    >
+      {isImage ? <Eye className="w-4 h-4 text-muted-foreground shrink-0" /> : <FileText className="w-4 h-4 text-muted-foreground shrink-0" />}
+      <span className="text-sm text-foreground truncate flex-1">{file.file_name}</span>
+      <Download className="w-4 h-4 text-muted-foreground shrink-0" />
+    </a>
+  );
 };
 
 const ListingDetail = () => {
@@ -24,6 +57,12 @@ const ListingDetail = () => {
   const [unlocked, setUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
+  // Reviews state
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [userRating, setUserRating] = useState(0);
+  const [existingReview, setExistingReview] = useState<Review | null>(null);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       const { data } = await supabase
@@ -33,7 +72,6 @@ const ListingDetail = () => {
         .single();
       setMaterial(data as unknown as Material | null);
 
-      // Check if user has unlocked this material
       if (user && data) {
         const { data: unlockData } = await supabase
           .from("unlocks")
@@ -43,6 +81,25 @@ const ListingDetail = () => {
           .maybeSingle();
         setUnlocked(!!unlockData);
       }
+
+      // Fetch reviews
+      if (data) {
+        const { data: reviewsData } = await supabase
+          .from("reviews")
+          .select("*")
+          .eq("material_id", data.id);
+        const r = (reviewsData || []) as unknown as Review[];
+        setReviews(r);
+
+        if (user) {
+          const mine = r.find((rev) => rev.reviewer_id === user.id);
+          if (mine) {
+            setExistingReview(mine);
+            setUserRating(mine.rating);
+          }
+        }
+      }
+
       setLoading(false);
     };
     fetchData();
@@ -53,6 +110,16 @@ const ListingDetail = () => {
   const isPaid = material?.exchange_type === "Paid";
   const isTrade = material?.exchange_type === "Trade";
   const canAccess = isFree || isOwner || unlocked;
+
+  const materialFiles: MaterialFile[] = material?.files?.length
+    ? material.files
+    : material
+      ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }]
+      : [];
+
+  const avgRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : 0;
 
   const handleUnlock = async () => {
     if (!user || !material) return;
@@ -83,10 +150,44 @@ const ListingDetail = () => {
     }
   };
 
+  const handleSubmitReview = async (rating: number) => {
+    if (!user || !material || isOwner) return;
+    setSubmittingReview(true);
+    setUserRating(rating);
+    try {
+      if (existingReview) {
+        const { error } = await supabase
+          .from("reviews")
+          .update({ rating })
+          .eq("id", existingReview.id);
+        if (error) throw error;
+        setExistingReview({ ...existingReview, rating });
+        setReviews((prev) => prev.map((r) => r.id === existingReview.id ? { ...r, rating } : r));
+        toast({ title: "Review updated!" });
+      } else {
+        const { data, error } = await supabase
+          .from("reviews")
+          .insert({ material_id: material.id, reviewer_id: user.id, rating })
+          .select()
+          .single();
+        if (error) throw error;
+        const newReview = data as unknown as Review;
+        setExistingReview(newReview);
+        setReviews((prev) => [...prev, newReview]);
+        toast({ title: "Review submitted!" });
+      }
+    } catch (error: any) {
+      toast({ title: "Review failed", description: sanitizeError(error), variant: "destructive" });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   if (loading) return <div className="max-w-lg mx-auto px-4 pt-12 text-center text-muted-foreground">Loading...</div>;
   if (!material) return <div className="max-w-lg mx-auto px-4 pt-12 text-center text-muted-foreground">Material not found.</div>;
 
-  const isImage = material.file_type.startsWith("image/");
+  const primaryFile = materialFiles[0];
+  const isImage = primaryFile?.file_type.startsWith("image/");
   const uploaderName = material.profiles?.name || "Anonymous";
 
   return (
@@ -98,10 +199,11 @@ const ListingDetail = () => {
         <span className="text-sm font-medium text-foreground">Details</span>
       </div>
 
+      {/* Preview image */}
       <div className="aspect-[4/3] bg-muted mx-4 rounded-lg flex items-center justify-center relative overflow-hidden">
         {isImage ? (
           <img
-            src={material.file_url}
+            src={primaryFile.file_url}
             alt={material.title}
             className={`w-full h-full object-cover ${canAccess ? "" : "blur-md scale-110"}`}
           />
@@ -129,7 +231,23 @@ const ListingDetail = () => {
           <span className="text-[10px] font-medium text-muted-foreground">{material.type}</span>
         </div>
 
-        <h1 className="text-xl text-foreground leading-tight mb-2">{material.title}</h1>
+        <h1 className="text-xl text-foreground leading-tight mb-1">{material.title}</h1>
+
+        {/* Rating summary */}
+        <div className="flex items-center gap-2 mb-2">
+          {reviews.length > 0 ? (
+            <>
+              <div className="flex gap-0.5">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} className={`w-3.5 h-3.5 ${s <= Math.round(avgRating) ? "fill-primary text-primary" : "text-muted-foreground/30"}`} />
+                ))}
+              </div>
+              <span className="text-xs text-muted-foreground">{avgRating.toFixed(1)} ({reviews.length} review{reviews.length !== 1 ? "s" : ""})</span>
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">No reviews yet</span>
+          )}
+        </div>
 
         <span className="text-xs text-muted-foreground">
           {new Date(material.created_at).toLocaleDateString()}
@@ -139,9 +257,10 @@ const ListingDetail = () => {
           <p className="text-sm text-muted-foreground leading-relaxed mt-4 mb-6">{material.description}</p>
         )}
 
+        {/* Uploader */}
         <button
           onClick={handleOpenDM}
-          disabled={!user || isOwner}
+          disabled={!user || !!isOwner}
           className="flex items-center gap-3 bg-secondary rounded-lg p-3 mb-6 w-full text-left hover:bg-muted transition-colors disabled:opacity-50"
         >
           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
@@ -155,15 +274,26 @@ const ListingDetail = () => {
           </div>
         </button>
 
+        {/* Files list */}
+        {materialFiles.length > 1 && (
+          <div className="mb-6">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Files ({materialFiles.length})
+            </h3>
+            <div className="space-y-2">
+              {materialFiles.map((f, i) => (
+                <FileItem key={i} file={f} canAccess={!!canAccess} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons */}
         <div className="flex gap-3">
           {isFree && (
             <Button className="flex-1" asChild>
-              <a href={material.file_url} target="_blank" rel="noopener noreferrer">
-                {isImage ? (
-                  <><Eye className="w-4 h-4 mr-1" /> View</>
-                ) : (
-                  <><Download className="w-4 h-4 mr-1" /> Download</>
-                )}
+              <a href={primaryFile?.file_url} target="_blank" rel="noopener noreferrer">
+                {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
               </a>
             </Button>
           )}
@@ -177,12 +307,8 @@ const ListingDetail = () => {
 
           {isPaid && canAccess && (
             <Button className="flex-1" asChild>
-              <a href={material.file_url} target="_blank" rel="noopener noreferrer">
-                {isImage ? (
-                  <><Eye className="w-4 h-4 mr-1" /> View</>
-                ) : (
-                  <><Download className="w-4 h-4 mr-1" /> Download</>
-                )}
+              <a href={primaryFile?.file_url} target="_blank" rel="noopener noreferrer">
+                {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
               </a>
             </Button>
           )}
@@ -195,7 +321,7 @@ const ListingDetail = () => {
 
           {isTrade && canAccess && !isOwner && (
             <Button className="flex-1" asChild>
-              <a href={material.file_url} target="_blank" rel="noopener noreferrer">
+              <a href={primaryFile?.file_url} target="_blank" rel="noopener noreferrer">
                 {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
               </a>
             </Button>
@@ -205,6 +331,17 @@ const ListingDetail = () => {
             <Flag className="w-4 h-4" />
           </Button>
         </div>
+
+        {/* Review section */}
+        {user && !isOwner && (
+          <div className="mt-6 bg-secondary rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              {existingReview ? "Edit Your Review" : "Leave a Review"}
+            </h3>
+            <StarRating rating={userRating} onRate={handleSubmitReview} interactive={!submittingReview} />
+            {submittingReview && <p className="text-[10px] text-muted-foreground mt-1">Saving...</p>}
+          </div>
+        )}
 
         <div className="mt-6 bg-secondary rounded-lg p-3 text-xs text-muted-foreground leading-relaxed">
           <span className="font-semibold text-foreground">📚 Study with integrity</span>

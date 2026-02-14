@@ -8,6 +8,12 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface MaterialFile {
+  file_url: string;
+  file_type: string;
+  file_name: string;
+}
+
 export interface Material {
   id: string;
   uploader_id: string;
@@ -18,10 +24,20 @@ export interface Material {
   description: string;
   file_url: string;
   file_type: string;
+  files: MaterialFile[];
   credit_price: number;
   created_at: string;
   updated_at: string;
   profiles?: Profile;
+}
+
+export interface Review {
+  id: string;
+  material_id: string;
+  reviewer_id: string;
+  rating: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Conversation {
