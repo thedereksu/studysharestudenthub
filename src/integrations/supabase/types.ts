@@ -61,6 +61,7 @@ export type Database = {
           exchange_type: string
           file_type: string
           file_url: string
+          files: Json | null
           id: string
           subject: string
           title: string
@@ -75,6 +76,7 @@ export type Database = {
           exchange_type?: string
           file_type: string
           file_url: string
+          files?: Json | null
           id?: string
           subject: string
           title: string
@@ -89,6 +91,7 @@ export type Database = {
           exchange_type?: string
           file_type?: string
           file_url?: string
+          files?: Json | null
           id?: string
           subject?: string
           title?: string
@@ -174,6 +177,48 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      reviews: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          rating: number
+          reviewer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          rating: number
+          reviewer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          rating?: number
+          reviewer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       unlocks: {
         Row: {

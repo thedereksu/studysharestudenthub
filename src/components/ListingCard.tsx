@@ -1,4 +1,4 @@
-import { Star, FileText, Image as ImageIcon } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Material } from "@/lib/types";
 
@@ -10,7 +10,8 @@ const exchangeBadgeClass: Record<string, string> = {
 
 const ListingCard = ({ material }: { material: Material }) => {
   const navigate = useNavigate();
-  const isImage = material.file_type.startsWith("image/");
+  const primaryFile = material.files?.[0] || { file_url: material.file_url, file_type: material.file_type };
+  const isImage = primaryFile.file_type.startsWith("image/");
 
   return (
     <button
@@ -20,7 +21,7 @@ const ListingCard = ({ material }: { material: Material }) => {
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center overflow-hidden">
         {isImage ? (
           <img
-            src={material.file_url}
+            src={primaryFile.file_url}
             alt={material.title}
             className={`w-full h-full object-cover ${material.exchange_type === "Free" ? "" : "blur-sm scale-110"}`}
           />

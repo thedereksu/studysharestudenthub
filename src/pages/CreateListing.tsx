@@ -21,7 +21,6 @@ const CreateListing = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth", { replace: true });
@@ -68,6 +67,9 @@ const CreateListing = () => {
 
     setUploading(true);
     try {
+      // Upload ALL files first
+      const uploadedFiles: { file_url: string; file_type: string; file_name: string }[] = [];
+
       for (const { file } of files) {
         const ext = file.name.split(".").pop();
         const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -82,19 +84,28 @@ const CreateListing = () => {
           .from("materials")
           .getPublicUrl(filePath);
 
-        const { error: insertError } = await supabase.from("materials").insert({
-          uploader_id: user.id,
-          title: title || file.name,
-          subject: subject || "Other",
-          type: type || "Notes",
-          exchange_type: exchange,
-          description,
+        uploadedFiles.push({
           file_url: publicUrl,
           file_type: file.type,
+          file_name: file.name,
         });
-
-        if (insertError) throw insertError;
       }
+
+      // Create ONE material record with all files
+      const primaryFile = uploadedFiles[0];
+      const { error: insertError } = await supabase.from("materials").insert({
+        uploader_id: user.id,
+        title: title || primaryFile.file_name,
+        subject: subject || "Other",
+        type: type || "Notes",
+        exchange_type: exchange,
+        description,
+        file_url: primaryFile.file_url,
+        file_type: primaryFile.file_type,
+        files: uploadedFiles,
+      });
+
+      if (insertError) throw insertError;
 
       toast({ title: "Material posted!", description: "Your study material is now live." });
       navigate("/");
@@ -133,7 +144,6 @@ const CreateListing = () => {
         <h1 className="text-xl text-foreground">Post Material</h1>
       </div>
 
-      {/* File upload area */}
       <input
         ref={fileInputRef}
         type="file"
@@ -181,10 +191,10 @@ const CreateListing = () => {
               <span className="text-[10px] text-muted-foreground">Add more</span>
             </button>
           </div>
+          <p className="text-[10px] text-muted-foreground">{files.length} file{files.length > 1 ? "s" : ""} — all will be part of one listing</p>
         </div>
       )}
 
-      {/* Title */}
       <div className="mb-5">
         <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Title <span className="text-muted-foreground/60 normal-case font-normal">(optional)</span></label>
         <input
@@ -200,7 +210,6 @@ const CreateListing = () => {
       <SelectPills label="Material Type" options={materialTypes} value={type} onChange={setType} />
       <SelectPills label="Exchange Type" options={exchangeOptions} value={exchange} onChange={setExchange} />
 
-      {/* Description */}
       <div className="mb-5">
         <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Description <span className="text-muted-foreground/60 normal-case font-normal">(optional)</span></label>
         <textarea
@@ -213,7 +222,7 @@ const CreateListing = () => {
       </div>
 
       <Button className="w-full mb-8" onClick={handleSubmit} disabled={files.length === 0 || uploading}>
-        {uploading ? "Uploading..." : `Post Material${files.length > 1 ? `s (${files.length})` : ""}`}
+        {uploading ? "Uploading..." : "Post Material"}
       </Button>
     </div>
   );
