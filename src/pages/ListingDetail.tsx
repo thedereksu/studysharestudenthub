@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Flag, Lock, BookOpen, FileText, Download, Eye, Coins, Star } from "lucide-react";
+import { ArrowLeft, Flag, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -324,6 +324,12 @@ const ListingDetail = () => {
               <a href={primaryFile?.file_url} target="_blank" rel="noopener noreferrer">
                 {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
               </a>
+            </Button>
+          )}
+
+          {isOwner && (
+            <Button variant="outline" onClick={() => navigate(`/edit/${material.id}`)}>
+              <Pencil className="w-4 h-4 mr-1" /> Edit
             </Button>
           )}
 

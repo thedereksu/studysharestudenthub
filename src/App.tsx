@@ -9,10 +9,12 @@ import HomePage from "@/pages/HomePage";
 import SearchPage from "@/pages/SearchPage";
 import ListingDetail from "@/pages/ListingDetail";
 import CreateListing from "@/pages/CreateListing";
+import EditMaterialPage from "@/pages/EditMaterialPage";
 import ProfilePage from "@/pages/ProfilePage";
 import MessagesPage from "@/pages/MessagesPage";
 import ChatPage from "@/pages/ChatPage";
 import AuthPage from "@/pages/AuthPage";
+import AdminPage from "@/pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,8 +33,10 @@ const App = () => (
               <Route path="/search" element={<SearchPage />} />
               <Route path="/listing/:id" element={<ListingDetail />} />
               <Route path="/create" element={<CreateListing />} />
+              <Route path="/edit/:id" element={<EditMaterialPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/admin" element={<AdminPage />} />
             </Route>
             <Route path="/chat/:userId" element={<ChatPage />} />
             <Route path="*" element={<NotFound />} />
