@@ -16,13 +16,13 @@ const ChatPage = () => {
   const [otherProfile, setOtherProfile] = useState<Profile | null>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const conversationRef = useRef<{ id: string; user1_id: string; user2_id: string } | null>(null);
 
   // Find or create conversation
   useEffect(() => {
     if (!user || !userId) return;
 
     const init = async () => {
-      // Fetch other user's profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
@@ -30,7 +30,6 @@ const ChatPage = () => {
         .single();
       setOtherProfile(profileData as Profile | null);
 
-      // Find existing conversation
       const { data: convos } = await supabase
         .from("conversations")
         .select("*")
@@ -38,10 +37,33 @@ const ChatPage = () => {
 
       if (convos && convos.length > 0) {
         setConversationId(convos[0].id);
+        conversationRef.current = convos[0] as any;
       }
     };
     init();
   }, [user, userId]);
+
+  // Mark as read when opening conversation
+  useEffect(() => {
+    if (!conversationId || !user) return;
+
+    const markRead = async () => {
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("user1_id, user2_id")
+        .eq("id", conversationId)
+        .single();
+
+      if (!conv) return;
+
+      const isUser1 = conv.user1_id === user.id;
+      await supabase
+        .from("conversations")
+        .update(isUser1 ? { user1_unread_count: 0 } : { user2_unread_count: 0 })
+        .eq("id", conversationId);
+    };
+    markRead();
+  }, [conversationId, user]);
 
   // Fetch messages when conversation is found
   useEffect(() => {
@@ -57,7 +79,6 @@ const ChatPage = () => {
     };
     fetchMessages();
 
-    // Subscribe to new messages
     const channel = supabase
       .channel(`messages-${conversationId}`)
       .on(
@@ -65,14 +86,25 @@ const ChatPage = () => {
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           setMessages((prev) => [...prev, payload.new as Message]);
+          // Mark read immediately if we're viewing
+          if (user) {
+            const conv = conversationRef.current;
+            if (conv) {
+              const isUser1 = conv.user1_id === user.id;
+              supabase
+                .from("conversations")
+                .update(isUser1 ? { user1_unread_count: 0 } : { user2_unread_count: 0 })
+                .eq("id", conversationId)
+                .then(() => {});
+            }
+          }
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [conversationId]);
+  }, [conversationId, user]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -84,7 +116,6 @@ const ChatPage = () => {
     try {
       let convId = conversationId;
 
-      // Create conversation if doesn't exist
       if (!convId) {
         const { data: newConvo, error: convError } = await supabase
           .from("conversations")
@@ -94,6 +125,7 @@ const ChatPage = () => {
         if (convError) throw convError;
         convId = newConvo.id;
         setConversationId(convId);
+        conversationRef.current = newConvo as any;
       }
 
       const { error } = await supabase.from("messages").insert({
