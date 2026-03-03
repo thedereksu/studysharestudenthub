@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
+import CommentsSection from "@/components/CommentsSection";
 import type { Material, MaterialFile, Review } from "@/lib/types";
 
 const exchangeBadgeClass: Record<string, string> = {
@@ -348,6 +349,9 @@ const ListingDetail = () => {
             {submittingReview && <p className="text-[10px] text-muted-foreground mt-1">Saving...</p>}
           </div>
         )}
+
+        {/* Comments section */}
+        <CommentsSection materialId={material.id} />
 
         <div className="mt-6 bg-secondary rounded-lg p-3 text-xs text-muted-foreground leading-relaxed">
           <span className="font-semibold text-foreground">📚 Study with integrity</span>

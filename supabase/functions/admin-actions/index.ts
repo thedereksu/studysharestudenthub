@@ -90,7 +90,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Delete related data
+      // Delete related data (comments cascade via FK, but be explicit)
+      await supabaseAdmin.from("comments").delete().eq("material_id", targetId);
       await supabaseAdmin.from("reviews").delete().eq("material_id", targetId);
       await supabaseAdmin.from("unlocks").delete().eq("material_id", targetId);
       await supabaseAdmin.from("materials").delete().eq("id", targetId);
@@ -136,6 +137,7 @@ Deno.serve(async (req) => {
       // Delete related data
       const materialIds = (materials || []).map((m: any) => m.id);
       if (materialIds.length > 0) {
+        await supabaseAdmin.from("comments").delete().in("material_id", materialIds);
         await supabaseAdmin.from("reviews").delete().in("material_id", materialIds);
         await supabaseAdmin.from("unlocks").delete().in("material_id", materialIds);
       }
