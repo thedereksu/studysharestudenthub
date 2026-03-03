@@ -188,6 +188,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "delete_comment") {
+      const { error } = await supabaseAdmin.from("comments").delete().eq("id", targetId);
+      if (error) {
+        return new Response(JSON.stringify({ error: "Comment not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: user.id,
+        action_type: "delete_comment",
+        target_id: targetId,
+      });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "list_audit_log") {
       const { data: logs } = await supabaseAdmin
         .from("admin_actions")
