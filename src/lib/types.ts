@@ -40,6 +40,16 @@ export interface Review {
   updated_at: string;
 }
 
+export interface Comment {
+  id: string;
+  material_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  profiles?: Profile;
+}
+
 export interface Conversation {
   id: string;
   user1_id: string;
