@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
+import { getSignedUrls } from "@/lib/storage";
 import CommentsSection from "@/components/CommentsSection";
 import type { Material, MaterialFile, Review } from "@/lib/types";
 
@@ -36,10 +37,10 @@ const FileItem = ({ file, canAccess }: { file: MaterialFile; canAccess: boolean 
   const isImage = file.file_type.startsWith("image/");
   return (
     <a
-      href={canAccess ? file.file_url : undefined}
+      href={canAccess && file.file_url ? file.file_url : undefined}
       target="_blank"
       rel="noopener noreferrer"
-      className={`flex items-center gap-3 bg-secondary rounded-lg p-3 ${canAccess ? "hover:bg-muted" : "opacity-50 pointer-events-none"} transition-colors`}
+      className={`flex items-center gap-3 bg-secondary rounded-lg p-3 ${canAccess && file.file_url ? "hover:bg-muted" : "opacity-50 pointer-events-none"} transition-colors`}
     >
       {isImage ? <Eye className="w-4 h-4 text-muted-foreground shrink-0" /> : <FileText className="w-4 h-4 text-muted-foreground shrink-0" />}
       <span className="text-sm text-foreground truncate flex-1">{file.file_name}</span>
@@ -58,11 +59,21 @@ const ListingDetail = () => {
   const [unlocked, setUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
+  // Signed URL state
+  const [signedFiles, setSignedFiles] = useState<MaterialFile[]>([]);
+  const [canAccessFiles, setCanAccessFiles] = useState(false);
+
   // Reviews state
   const [reviews, setReviews] = useState<Review[]>([]);
   const [userRating, setUserRating] = useState(0);
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  const fetchSignedUrls = async (materialId: string) => {
+    const result = await getSignedUrls(materialId);
+    setSignedFiles(result.files);
+    setCanAccessFiles(result.canAccess);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,6 +110,9 @@ const ListingDetail = () => {
             setUserRating(mine.rating);
           }
         }
+
+        // Fetch signed URLs
+        await fetchSignedUrls(data.id);
       }
 
       setLoading(false);
@@ -110,13 +124,7 @@ const ListingDetail = () => {
   const isFree = material?.exchange_type === "Free";
   const isPaid = material?.exchange_type === "Paid";
   const isTrade = material?.exchange_type === "Trade";
-  const canAccess = isFree || isOwner || unlocked;
-
-  const materialFiles: MaterialFile[] = material?.files?.length
-    ? material.files
-    : material
-      ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }]
-      : [];
+  const canAccess = canAccessFiles;
 
   const avgRating = reviews.length > 0
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
@@ -137,6 +145,8 @@ const ListingDetail = () => {
       } else {
         setUnlocked(true);
         toast({ title: "Material unlocked!", description: "You now have full access." });
+        // Refresh signed URLs after unlock
+        await fetchSignedUrls(material.id);
       }
     } catch (error: any) {
       toast({ title: "Unlock failed", description: sanitizeError(error), variant: "destructive" });
@@ -187,8 +197,8 @@ const ListingDetail = () => {
   if (loading) return <div className="max-w-lg mx-auto px-4 pt-12 text-center text-muted-foreground">Loading...</div>;
   if (!material) return <div className="max-w-lg mx-auto px-4 pt-12 text-center text-muted-foreground">Material not found.</div>;
 
-  const primaryFile = materialFiles[0];
-  const isImage = primaryFile?.file_type.startsWith("image/");
+  const primarySignedFile = signedFiles[0];
+  const isImage = primarySignedFile?.file_type?.startsWith("image/");
   const uploaderName = material.profiles?.name || "Anonymous";
 
   return (
@@ -202,9 +212,9 @@ const ListingDetail = () => {
 
       {/* Preview image */}
       <div className="aspect-[4/3] bg-muted mx-4 rounded-lg flex items-center justify-center relative overflow-hidden">
-        {isImage ? (
+        {isImage && primarySignedFile?.file_url ? (
           <img
-            src={primaryFile.file_url}
+            src={primarySignedFile.file_url}
             alt={material.title}
             className={`w-full h-full object-cover ${canAccess ? "" : "blur-md scale-110"}`}
           />
@@ -276,14 +286,14 @@ const ListingDetail = () => {
         </button>
 
         {/* Files list */}
-        {materialFiles.length > 1 && (
+        {signedFiles.length > 1 && (
           <div className="mb-6">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Files ({materialFiles.length})
+              Files ({signedFiles.length})
             </h3>
             <div className="space-y-2">
-              {materialFiles.map((f, i) => (
-                <FileItem key={i} file={f} canAccess={!!canAccess} />
+              {signedFiles.map((f, i) => (
+                <FileItem key={i} file={f} canAccess={canAccess} />
               ))}
             </div>
           </div>
@@ -291,9 +301,9 @@ const ListingDetail = () => {
 
         {/* Action buttons */}
         <div className="flex gap-3">
-          {isFree && (
+          {isFree && primarySignedFile?.file_url && (
             <Button className="flex-1" asChild>
-              <a href={primaryFile?.file_url} target="_blank" rel="noopener noreferrer">
+              <a href={primarySignedFile.file_url} target="_blank" rel="noopener noreferrer">
                 {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
               </a>
             </Button>
@@ -306,9 +316,9 @@ const ListingDetail = () => {
             </Button>
           )}
 
-          {isPaid && canAccess && (
+          {isPaid && canAccess && primarySignedFile?.file_url && (
             <Button className="flex-1" asChild>
-              <a href={primaryFile?.file_url} target="_blank" rel="noopener noreferrer">
+              <a href={primarySignedFile.file_url} target="_blank" rel="noopener noreferrer">
                 {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
               </a>
             </Button>
@@ -320,9 +330,9 @@ const ListingDetail = () => {
             </Button>
           )}
 
-          {isTrade && canAccess && !isOwner && (
+          {isTrade && canAccess && !isOwner && primarySignedFile?.file_url && (
             <Button className="flex-1" asChild>
-              <a href={primaryFile?.file_url} target="_blank" rel="noopener noreferrer">
+              <a href={primarySignedFile.file_url} target="_blank" rel="noopener noreferrer">
                 {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
               </a>
             </Button>
