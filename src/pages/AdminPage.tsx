@@ -22,12 +22,14 @@ interface AdminUser {
   name: string;
   school: string | null;
   created_at: string;
+  credit_balance: number;
 }
 
 interface AdminMaterial {
   id: string;
   title: string;
   subject: string;
+  exchange_type: string;
   uploader_id: string;
   created_at: string;
   profiles?: { name: string } | null;
@@ -53,24 +55,14 @@ const AdminPage = () => {
   const [loadingData, setLoadingData] = useState(true);
 
   const callAdmin = async (body: Record<string, string>) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-actions`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify(body),
-      }
-    );
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Admin action failed");
+    const { data, error } = await supabase.functions.invoke("admin-actions", {
+      body,
+    });
+    if (error) {
+      console.error("Admin call error:", error);
+      throw new Error(error.message || "Admin action failed");
     }
-    return res.json();
+    return data;
   };
 
   const fetchAll = async () => {
@@ -143,6 +135,7 @@ const AdminPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>ID</TableHead>
                   <TableHead>School</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="w-16"></TableHead>
@@ -152,6 +145,7 @@ const AdminPage = () => {
                 {users.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium text-foreground">{u.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs font-mono">{u.id.slice(0, 8)}...</TableCell>
                     <TableCell className="text-muted-foreground">{u.school || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
@@ -187,6 +181,7 @@ const AdminPage = () => {
                 <TableRow>
                   <TableHead>Title</TableHead>
                   <TableHead>Subject</TableHead>
+                  <TableHead>Exchange</TableHead>
                   <TableHead>Uploader</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="w-16"></TableHead>
@@ -197,6 +192,7 @@ const AdminPage = () => {
                   <TableRow key={m.id}>
                     <TableCell className="font-medium text-foreground">{m.title}</TableCell>
                     <TableCell className="text-muted-foreground">{m.subject}</TableCell>
+                    <TableCell className="text-muted-foreground">{m.exchange_type}</TableCell>
                     <TableCell className="text-muted-foreground">{(m.profiles as any)?.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(m.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
