@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Trash2, Users, BookOpen, ClipboardList } from "lucide-react";
+import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -16,6 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ReportsTab from "@/components/admin/ReportsTab";
 
 interface AdminUser {
   id: string;
@@ -52,6 +53,7 @@ const AdminPage = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [materials, setMaterials] = useState<AdminMaterial[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   const callAdmin = async (body: Record<string, string>) => {
@@ -68,14 +70,16 @@ const AdminPage = () => {
   const fetchAll = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, matsRes, logsRes] = await Promise.all([
+      const [usersRes, matsRes, logsRes, reportsRes] = await Promise.all([
         callAdmin({ action: "list_users" }),
         callAdmin({ action: "list_materials" }),
         callAdmin({ action: "list_audit_log" }),
+        callAdmin({ action: "list_reports" }),
       ]);
       setUsers(usersRes.users || []);
       setMaterials(matsRes.materials || []);
       setAuditLog(logsRes.logs || []);
+      setReports(reportsRes.reports || []);
     } catch (e: any) {
       toast({ title: "Failed to load admin data", description: sanitizeError(e), variant: "destructive" });
     }
@@ -126,6 +130,7 @@ const AdminPage = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-1" /> Users</TabsTrigger>
           <TabsTrigger value="materials"><BookOpen className="w-4 h-4 mr-1" /> Materials</TabsTrigger>
+          <TabsTrigger value="reports"><Flag className="w-4 h-4 mr-1" /> Reports</TabsTrigger>
           <TabsTrigger value="audit"><ClipboardList className="w-4 h-4 mr-1" /> Audit Log</TabsTrigger>
         </TabsList>
 
@@ -217,6 +222,10 @@ const AdminPage = () => {
               </TableBody>
             </Table>
           )}
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <ReportsTab reports={reports} loading={loadingData} onRefresh={fetchAll} />
         </TabsContent>
 
         <TabsContent value="audit">
