@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Flag, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil } from "lucide-react";
+import { ArrowLeft, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
 import { getSignedUrls } from "@/lib/storage";
 import CommentsSection from "@/components/CommentsSection";
+import ReportModal from "@/components/ReportModal";
 import type { Material, MaterialFile, Review } from "@/lib/types";
 
 const exchangeBadgeClass: Record<string, string> = {
@@ -344,9 +345,7 @@ const ListingDetail = () => {
             </Button>
           )}
 
-          <Button variant="outline" size="icon">
-            <Flag className="w-4 h-4" />
-          </Button>
+          <ReportModal materialId={material.id} />
         </div>
 
         {/* Review section */}

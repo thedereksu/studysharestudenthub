@@ -60,7 +60,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { action, targetId } = await req.json();
+    const body = await req.json();
+    const { action, targetId, status: reqStatus } = body;
     console.log("Admin action:", action, "target:", targetId);
 
     if (action === "delete_material") {
@@ -221,6 +222,50 @@ Deno.serve(async (req) => {
       console.log("list_audit_log result:", logs?.length, "error:", logsError);
 
       return new Response(JSON.stringify({ logs: logs || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "list_reports") {
+      const { data: reports, error: reportsError } = await supabaseAdmin
+        .from("reports")
+        .select("*, materials(title), profiles!reports_reporter_user_id_fkey(name)")
+        .order("created_at", { ascending: false });
+
+      console.log("list_reports result:", reports?.length, "error:", reportsError);
+
+      const mapped = (reports || []).map((r: any) => ({
+        ...r,
+        material_title: r.materials?.title || null,
+        reporter_name: r.profiles?.name || null,
+        materials: undefined,
+        profiles: undefined,
+      }));
+
+      return new Response(JSON.stringify({ reports: mapped }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update_report_status") {
+      const newStatus = reqStatus || "reviewed";
+      const { error } = await supabaseAdmin
+        .from("reports")
+        .update({ status: newStatus })
+        .eq("id", targetId);
+      if (error) {
+        console.error("update_report_status error:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: user.id,
+        action_type: `report_${newStatus}`,
+        target_id: targetId,
+      });
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

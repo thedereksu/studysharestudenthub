@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
 import ListingCard from "@/components/ListingCard";
+import ContributorBadge from "@/components/ContributorBadge";
 import type { Material, Profile } from "@/lib/types";
 
 const ProfilePage = () => {
@@ -140,6 +141,7 @@ const ProfilePage = () => {
               <div>
                 <h2 className="text-lg font-sans font-semibold text-foreground">{profile?.name || "Set your name"}</h2>
                 {profile?.school && <p className="text-xs text-muted-foreground">{profile.school}</p>}
+                <ContributorBadge uploadCount={materials.length} />
               </div>
             </div>
             {profile?.bio && <p className="text-sm text-muted-foreground leading-relaxed mb-4">{profile.bio}</p>}
