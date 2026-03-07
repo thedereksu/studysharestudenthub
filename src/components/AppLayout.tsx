@@ -25,6 +25,14 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Top bar with notification bell */}
+      {!hideNav && user && (
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b border-border">
+          <div className="max-w-lg mx-auto px-4 h-12 flex items-center justify-end">
+            <NotificationDropdown />
+          </div>
+        </header>
+      )}
       <main className="flex-1 pb-20">
         <Outlet />
       </main>
