@@ -2,6 +2,8 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, PlusCircle, MessageCircle, User, Search, Shield } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useAdmin } from "@/hooks/useAdmin";
+import NotificationDropdown from "@/components/NotificationDropdown";
+import { useAuth } from "@/hooks/useAuth";
 
 const AppLayout = () => {
   const location = useLocation();
