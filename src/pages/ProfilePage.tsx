@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
 import ListingCard from "@/components/ListingCard";
 import ContributorBadge from "@/components/ContributorBadge";
+import NotificationPreferences from "@/components/NotificationPreferences";
 import type { Material, Profile } from "@/lib/types";
 
 const ProfilePage = () => {
