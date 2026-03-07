@@ -10,6 +10,7 @@ const AppLayout = () => {
   const navigate = useNavigate();
   const totalUnread = useUnreadCount();
   const { isAdmin } = useAdmin();
+  const { user } = useAuth();
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
