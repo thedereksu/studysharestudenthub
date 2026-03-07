@@ -2,12 +2,15 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, PlusCircle, MessageCircle, User, Search, Shield } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useAdmin } from "@/hooks/useAdmin";
+import NotificationDropdown from "@/components/NotificationDropdown";
+import { useAuth } from "@/hooks/useAuth";
 
 const AppLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const totalUnread = useUnreadCount();
   const { isAdmin } = useAdmin();
+  const { user } = useAuth();
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
@@ -22,6 +25,14 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Top bar with notification bell */}
+      {!hideNav && user && (
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b border-border">
+          <div className="max-w-lg mx-auto px-4 h-12 flex items-center justify-end">
+            <NotificationDropdown />
+          </div>
+        </header>
+      )}
       <main className="flex-1 pb-20">
         <Outlet />
       </main>
