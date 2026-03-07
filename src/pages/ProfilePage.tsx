@@ -160,6 +160,11 @@ const ProfilePage = () => {
         )}
       </div>
 
+      {/* Notification preferences */}
+      <div className="mb-6">
+        <NotificationPreferences />
+      </div>
+
       {/* My materials */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-sans font-semibold text-foreground">My Materials</h2>
