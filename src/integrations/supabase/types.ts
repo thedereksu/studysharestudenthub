@@ -554,6 +554,7 @@ export type Database = {
         Returns: boolean
       }
       is_email_blocked: { Args: { check_email: string }; Returns: boolean }
+      promote_material: { Args: { p_material_id: string }; Returns: Json }
       unlock_material:
         | { Args: { p_material_id: string }; Returns: Json }
         | { Args: { p_buyer_id: string; p_material_id: string }; Returns: Json }
