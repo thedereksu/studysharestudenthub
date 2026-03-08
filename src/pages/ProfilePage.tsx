@@ -9,6 +9,7 @@ import { sanitizeError } from "@/lib/errors";
 import ListingCard from "@/components/ListingCard";
 import ContributorBadge from "@/components/ContributorBadge";
 import NotificationPreferences from "@/components/NotificationPreferences";
+import { Badge } from "@/components/ui/badge";
 import type { Material, Profile } from "@/lib/types";
 
 const ProfilePage = () => {

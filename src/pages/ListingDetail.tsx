@@ -10,6 +10,36 @@ import { getSignedUrls } from "@/lib/storage";
 import CommentsSection from "@/components/CommentsSection";
 import ReportModal from "@/components/ReportModal";
 import type { Material, MaterialFile, Review } from "@/lib/types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const PROMO_TIERS = [
+  { id: "24h", label: "24 Hours", credits: 3 },
+  { id: "3d", label: "3 Days", credits: 8 },
+  { id: "7d", label: "7 Days", credits: 20 },
+];
+
+const PromoteTierMenu = ({ materialId, promoting, onPromote }: { materialId: string; promoting: boolean; onPromote: (tier: string) => void }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="secondary" disabled={promoting}>
+        <Megaphone className="w-4 h-4 mr-1" />
+        {promoting ? "Promoting..." : "Promote"}
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      {PROMO_TIERS.map((tier) => (
+        <DropdownMenuItem key={tier.id} onClick={() => onPromote(tier.id)}>
+          {tier.label} — {tier.credits} credits
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
 
 const exchangeBadgeClass: Record<string, string> = {
   Free: "bg-[hsl(var(--badge-free))] text-[hsl(var(--badge-free-text))]",
