@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil } from "lucide-react";
+import { ArrowLeft, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
