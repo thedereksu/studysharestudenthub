@@ -236,6 +236,7 @@ const AdminPage = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-1" /> Users</TabsTrigger>
           <TabsTrigger value="materials"><BookOpen className="w-4 h-4 mr-1" /> Materials</TabsTrigger>
+          <TabsTrigger value="badges"><Award className="w-4 h-4 mr-1" /> Badges</TabsTrigger>
           <TabsTrigger value="reports"><Flag className="w-4 h-4 mr-1" /> Reports</TabsTrigger>
           <TabsTrigger value="audit"><ClipboardList className="w-4 h-4 mr-1" /> Audit Log</TabsTrigger>
         </TabsList>
