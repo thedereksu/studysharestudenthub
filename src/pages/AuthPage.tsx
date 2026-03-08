@@ -24,7 +24,14 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
+  const { blockedMessage } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (blockedMessage) {
+      toast({ title: blockedMessage, variant: "destructive" });
+    }
+  }, [blockedMessage]);
 
   const checkBlocked = async (checkEmail: string): Promise<boolean> => {
     const { data, error } = await supabase.rpc("is_email_blocked", { check_email: checkEmail });
