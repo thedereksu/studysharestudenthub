@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen } from "lucide-react";
+import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { sanitizeError } from "@/lib/errors";
 import ListingCard from "@/components/ListingCard";
 import ContributorBadge from "@/components/ContributorBadge";
 import NotificationPreferences from "@/components/NotificationPreferences";
+import { Badge } from "@/components/ui/badge";
 import type { Material, Profile } from "@/lib/types";
 
 const ProfilePage = () => {
@@ -22,6 +23,7 @@ const ProfilePage = () => {
   const [editSchool, setEditSchool] = useState("");
   const [editBio, setEditBio] = useState("");
   const [saving, setSaving] = useState(false);
+  const [buyingBadge, setBuyingBadge] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
@@ -143,6 +145,11 @@ const ProfilePage = () => {
                 <h2 className="text-lg font-sans font-semibold text-foreground">{profile?.name || "Set your name"}</h2>
                 {profile?.school && <p className="text-xs text-muted-foreground">{profile.school}</p>}
                 <ContributorBadge uploadCount={materials.length} />
+                {profile?.has_featured_badge && (
+                  <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
+                    <Award className="w-3 h-3" /> Featured Contributor
+                  </Badge>
+                )}
               </div>
             </div>
             {profile?.bio && <p className="text-sm text-muted-foreground leading-relaxed mb-4">{profile.bio}</p>}
@@ -156,6 +163,36 @@ const ProfilePage = () => {
                 <p className="text-[10px] text-muted-foreground">Credits</p>
               </div>
             </div>
+            {!profile?.has_featured_badge && (
+              <Button
+                variant="outline"
+                className="w-full mt-3"
+                disabled={buyingBadge}
+                onClick={async () => {
+                  if (!user) return;
+                  if (!confirm("Purchase Featured Contributor Badge for 50 credits?")) return;
+                  setBuyingBadge(true);
+                  try {
+                    const { data, error } = await supabase.rpc("purchase_featured_badge" as any);
+                    if (error) throw error;
+                    const result = data as unknown as { success: boolean; error?: string };
+                    if (!result.success) {
+                      toast({ title: result.error || "Purchase failed", variant: "destructive" });
+                    } else {
+                      toast({ title: "Featured Contributor Badge purchased!" });
+                      fetchData();
+                    }
+                  } catch (e: any) {
+                    toast({ title: "Purchase failed", description: sanitizeError(e), variant: "destructive" });
+                  } finally {
+                    setBuyingBadge(false);
+                  }
+                }}
+              >
+                <Award className="w-4 h-4 mr-1" />
+                {buyingBadge ? "Purchasing..." : "Purchase Featured Contributor Badge — 50 Credits"}
+              </Button>
+            )}
           </>
         )}
       </div>

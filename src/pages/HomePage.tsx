@@ -17,7 +17,7 @@ const HomePage = () => {
         .from("materials")
         .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
         .order("created_at", { ascending: false });
-      // Sort: active promotions first, then by created_at
+      // Sort: promoted first, then featured badge holders, then normal
       if (data) {
         const now = new Date().toISOString();
         data.sort((a: any, b: any) => {
@@ -26,7 +26,12 @@ const HomePage = () => {
           if (aPromoted && !bPromoted) return -1;
           if (!aPromoted && bPromoted) return 1;
           if (aPromoted && bPromoted) return new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime();
-          return 0; // keep existing created_at order
+          // Featured badge holders next
+          const aFeatured = a.profiles?.has_featured_badge;
+          const bFeatured = b.profiles?.has_featured_badge;
+          if (aFeatured && !bFeatured) return -1;
+          if (!aFeatured && bFeatured) return 1;
+          return 0;
         });
       }
       if (error) {
