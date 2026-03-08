@@ -24,7 +24,10 @@ const ProfilePage = () => {
   const [editSchool, setEditSchool] = useState("");
   const [editBio, setEditBio] = useState("");
   const [saving, setSaving] = useState(false);
-  const [buyingBadge, setBuyingBadge] = useState(false);
+  const [applyingBadge, setApplyingBadge] = useState(false);
+  const [badgeReason, setBadgeReason] = useState("");
+  const [showBadgeForm, setShowBadgeForm] = useState(false);
+  const [hasPendingApplication, setHasPendingApplication] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
