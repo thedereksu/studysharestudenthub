@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award } from "lucide-react";
+import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award, X, Coins } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import ListingCard from "@/components/ListingCard";
 import ContributorBadge from "@/components/ContributorBadge";
 import NotificationPreferences from "@/components/NotificationPreferences";
 import { Badge } from "@/components/ui/badge";
-import type { Material, Profile } from "@/lib/types";
+import type { Material, Profile, MaterialRequest } from "@/lib/types";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -18,6 +18,7 @@ const ProfilePage = () => {
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [myRequests, setMyRequests] = useState<MaterialRequest[]>([]);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editSchool, setEditSchool] = useState("");
@@ -27,13 +28,15 @@ const ProfilePage = () => {
 
   const fetchData = async () => {
     if (!user) return;
-    const [{ data: profileData }, { data: materialsData }] = await Promise.all([
+    const [{ data: profileData }, { data: materialsData }, { data: reqData }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
     ]);
     const p = profileData as Profile | null;
     setProfile(p);
     setMaterials((materialsData as unknown as Material[]) || []);
+    setMyRequests((reqData as unknown as MaterialRequest[]) || []);
     if (p) {
       setEditName(p.name);
       setEditSchool(p.school || "");
@@ -196,6 +199,58 @@ const ProfilePage = () => {
           </>
         )}
       </div>
+
+      {/* My Requests */}
+      {myRequests.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-base font-sans font-semibold text-foreground mb-3">My Requests</h2>
+          <div className="space-y-2">
+            {myRequests.map((req) => (
+              <div key={req.id} className="bg-card border border-border rounded-lg p-3 flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      req.status === 'open' ? 'bg-accent/20 text-accent-foreground' :
+                      req.status === 'fulfilled' ? 'bg-primary/20 text-primary' :
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {req.status}
+                    </span>
+                    <span className="text-xs font-semibold text-primary flex items-center gap-0.5">
+                      <Coins className="w-3 h-3" /> {req.reward_credits}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-foreground">{req.title}</h3>
+                  {req.description && <p className="text-xs text-muted-foreground line-clamp-1">{req.description}</p>}
+                </div>
+                {req.status === 'open' && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Cancel this request? Your credits will be refunded.")) return;
+                      try {
+                        const { data, error } = await supabase.rpc("cancel_material_request" as any, { p_request_id: req.id });
+                        if (error) throw error;
+                        const result = data as unknown as { success: boolean; error?: string };
+                        if (!result.success) {
+                          toast({ title: result.error || "Failed to cancel", variant: "destructive" });
+                        } else {
+                          toast({ title: "Request cancelled. Credits refunded." });
+                          fetchData();
+                        }
+                      } catch (e: any) {
+                        toast({ title: "Failed to cancel", description: sanitizeError(e), variant: "destructive" });
+                      }
+                    }}
+                    className="p-2 rounded-full hover:bg-destructive/10 transition-colors"
+                  >
+                    <X className="w-4 h-4 text-destructive" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Notification preferences */}
       <div className="mb-6">

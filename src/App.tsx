@@ -9,6 +9,7 @@ import HomePage from "@/pages/HomePage";
 import SearchPage from "@/pages/SearchPage";
 import ListingDetail from "@/pages/ListingDetail";
 import CreateListing from "@/pages/CreateListing";
+import CreateRequestPage from "@/pages/CreateRequestPage";
 import EditMaterialPage from "@/pages/EditMaterialPage";
 import ProfilePage from "@/pages/ProfilePage";
 import MessagesPage from "@/pages/MessagesPage";
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="/search" element={<SearchPage />} />
               <Route path="/listing/:id" element={<ListingDetail />} />
               <Route path="/create" element={<CreateListing />} />
+              <Route path="/request" element={<CreateRequestPage />} />
               <Route path="/edit/:id" element={<EditMaterialPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/messages" element={<MessagesPage />} />
