@@ -76,6 +76,7 @@ const AdminPage = () => {
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [materials, setMaterials] = useState<AdminMaterial[]>([]);
+  const [requests, setRequests] = useState<AdminRequest[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
