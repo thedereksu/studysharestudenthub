@@ -67,7 +67,12 @@ const ListingCard = ({ material }: { material: Material }) => {
           {material.title}
         </h3>
         <div className="flex items-center justify-between mt-2">
-          <span className="text-[11px] text-muted-foreground">{material.profiles?.name || "Anonymous"}</span>
+          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+            {material.profiles?.name || "Anonymous"}
+            {material.profiles?.has_featured_badge && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary">⭐</span>
+            )}
+          </span>
         </div>
       </div>
     </button>

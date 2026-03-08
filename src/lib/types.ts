@@ -30,6 +30,7 @@ export interface Material {
   ownership_confirmed: boolean;
   is_promoted: boolean;
   promotion_expires_at: string | null;
+  promotion_tier: string | null;
   created_at: string;
   updated_at: string;
   profiles?: Profile;

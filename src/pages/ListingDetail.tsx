@@ -344,39 +344,40 @@ const ListingDetail = () => {
               <Button variant="outline" onClick={() => navigate(`/edit/${material.id}`)}>
                 <Pencil className="w-4 h-4 mr-1" /> Edit
               </Button>
-              <Button
-                variant="secondary"
-                disabled={promoting || (material.is_promoted && !!material.promotion_expires_at && new Date(material.promotion_expires_at) > new Date())}
-                onClick={async () => {
-                  if (!user || !material) return;
-                  const isActive = material.is_promoted && material.promotion_expires_at && new Date(material.promotion_expires_at) > new Date();
-                  if (isActive) return;
-                  if (!confirm("Promote this item for 24 hours for 3 credits?")) return;
-                  setPromoting(true);
-                  try {
-                    const { data, error } = await supabase.rpc("promote_material", {
-                      p_material_id: material.id,
-                    });
-                    if (error) throw error;
-                    const result = data as unknown as { success: boolean; error?: string };
-                    if (!result.success) {
-                      toast({ title: result.error || "Promotion failed", variant: "destructive" });
-                    } else {
-                      toast({ title: "This item has been promoted for 24 hours." });
-                      setMaterial({ ...material, is_promoted: true, promotion_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
+              {material.is_promoted && material.promotion_expires_at && new Date(material.promotion_expires_at) > new Date() ? (
+                <Button variant="secondary" disabled>
+                  <Megaphone className="w-4 h-4 mr-1" /> Promoted
+                </Button>
+              ) : (
+                <PromoteTierMenu
+                  materialId={material.id}
+                  promoting={promoting}
+                  onPromote={async (tier: string) => {
+                    if (!user || !material) return;
+                    const durations: Record<string, number> = { "24h": 24, "3d": 72, "7d": 168 };
+                    setPromoting(true);
+                    try {
+                      const { data, error } = await supabase.rpc("promote_material", {
+                        p_material_id: material.id,
+                        p_tier: tier,
+                      } as any);
+                      if (error) throw error;
+                      const result = data as unknown as { success: boolean; error?: string };
+                      if (!result.success) {
+                        toast({ title: result.error || "Promotion failed", variant: "destructive" });
+                      } else {
+                        const hours = durations[tier] || 24;
+                        toast({ title: `This item has been promoted for ${tier === "24h" ? "24 hours" : tier === "3d" ? "3 days" : "7 days"}.` });
+                        setMaterial({ ...material, is_promoted: true, promotion_tier: tier, promotion_expires_at: new Date(Date.now() + hours * 60 * 60 * 1000).toISOString() });
+                      }
+                    } catch (e: any) {
+                      toast({ title: "Promotion failed", description: sanitizeError(e), variant: "destructive" });
+                    } finally {
+                      setPromoting(false);
                     }
-                  } catch (e: any) {
-                    toast({ title: "Promotion failed", description: sanitizeError(e), variant: "destructive" });
-                  } finally {
-                    setPromoting(false);
-                  }
-                }}
-              >
-                <Megaphone className="w-4 h-4 mr-1" />
-                {material.is_promoted && material.promotion_expires_at && new Date(material.promotion_expires_at) > new Date()
-                  ? "Promoted"
-                  : promoting ? "Promoting..." : "Promote"}
-              </Button>
+                  }}
+                />
+              )}
             </>
           )}
 
