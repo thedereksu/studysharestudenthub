@@ -107,7 +107,7 @@ const HomePage = () => {
         ))}
       </div>
 
-      {/* Active requests */}
+      {/* Active requests - highest priority, above everything */}
       {filteredRequests.length > 0 && (
         <div className="space-y-3 mb-4">
           {filteredRequests.map((req) => (
