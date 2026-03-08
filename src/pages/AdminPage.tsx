@@ -118,6 +118,26 @@ const AdminPage = () => {
     }
   };
 
+  const handleBlockEmail = async (userId: string, email: string) => {
+    try {
+      await callAdmin({ action: "block_email", targetId: userId, email });
+      toast({ title: "Email blocked" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Block failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
+  const handleUnblockEmail = async (userId: string, email: string) => {
+    try {
+      await callAdmin({ action: "unblock_email", targetId: userId, email });
+      toast({ title: "Email unblocked" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Unblock failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
   if (authLoading || roleLoading) return <div className="max-w-4xl mx-auto px-4 pt-12 text-center text-muted-foreground">Loading...</div>;
   if (!isAdmin) return null;
 
