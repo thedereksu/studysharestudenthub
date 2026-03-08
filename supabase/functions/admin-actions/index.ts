@@ -14,11 +14,12 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
-    // Verify auth
+    // Verify auth using anon client with user's token
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       console.error("Admin action: No auth header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -27,31 +28,33 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(token);
+    const supabaseAuth = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    if (authError || !user) {
-      console.error("Admin action: Auth failed", authError?.message);
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error("Admin action: Auth failed", claimsError?.message);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const userId = claimsData.claims.sub as string;
+
     // Check admin role
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("role", "admin")
       .maybeSingle();
 
-    console.log("Admin role check for", user.id, "result:", roleData, "error:", roleError);
+    console.log("Admin role check for", userId, "result:", roleData, "error:", roleError);
 
     if (!roleData) {
-      console.error("Admin action: User not admin", user.id);
+      console.error("Admin action: User not admin", userId);
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -100,7 +103,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from("materials").delete().eq("id", targetId);
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "delete_material",
         target_id: targetId,
         details: { title: material.title, uploader_id: material.uploader_id },
@@ -156,7 +159,7 @@ Deno.serve(async (req) => {
       }
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "delete_user",
         target_id: targetId,
       });
@@ -224,7 +227,7 @@ Deno.serve(async (req) => {
         });
       }
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "delete_comment",
         target_id: targetId,
       });
@@ -282,7 +285,7 @@ Deno.serve(async (req) => {
         });
       }
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: `report_${newStatus}`,
         target_id: targetId,
       });
@@ -351,7 +354,7 @@ Deno.serve(async (req) => {
       });
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "adjust_credits",
         target_id: targetUserId,
         details: { amount: delta, reason, new_balance: newBalance },
@@ -376,7 +379,7 @@ Deno.serve(async (req) => {
       // Insert into blocked_emails
       const { error: blockError } = await supabaseAdmin
         .from("blocked_emails")
-        .upsert({ email: normalizedEmail, reason: blockReason || null, blocked_by_admin_id: user.id }, { onConflict: "email" });
+        .upsert({ email: normalizedEmail, reason: blockReason || null, blocked_by_admin_id: userId }, { onConflict: "email" });
 
       if (blockError) {
         console.error("block_email error:", blockError);
@@ -387,7 +390,7 @@ Deno.serve(async (req) => {
       }
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "block_email",
         target_id: targetId || normalizedEmail,
         details: { email: normalizedEmail, reason: blockReason },
@@ -423,7 +426,7 @@ Deno.serve(async (req) => {
       }
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "unblock_email",
         target_id: targetId || normalizedEmail,
         details: { email: normalizedEmail },
