@@ -35,6 +35,7 @@ const CreateListing = () => {
   const [exchange, setExchange] = useState("Free");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [ownershipConfirmed, setOwnershipConfirmed] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
