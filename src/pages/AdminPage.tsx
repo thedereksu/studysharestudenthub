@@ -103,14 +103,16 @@ const AdminPage = () => {
   const fetchAll = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, matsRes, logsRes, reportsRes] = await Promise.all([
+      const [usersRes, matsRes, reqsRes, logsRes, reportsRes] = await Promise.all([
         callAdmin({ action: "list_users" }),
         callAdmin({ action: "list_materials" }),
+        callAdmin({ action: "list_requests" }),
         callAdmin({ action: "list_audit_log" }),
         callAdmin({ action: "list_reports" }),
       ]);
       setUsers(usersRes.users || []);
       setMaterials(matsRes.materials || []);
+      setRequests(reqsRes.requests || []);
       setAuditLog(logsRes.logs || []);
       setReports(reportsRes.reports || []);
     } catch (e: any) {
