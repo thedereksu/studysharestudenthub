@@ -36,7 +36,6 @@ const HomePage = () => {
   return (
     <div className="max-w-lg mx-auto px-4">
       <div className="pt-6 pb-4">
-        <h1 className="text-2xl text-foreground">StudySwap</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Share knowledge, grow together</p>
       </div>
 
