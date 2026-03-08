@@ -13,6 +13,7 @@ const exchangeBadgeClass: Record<string, string> = {
 const ListingCard = ({ material }: { material: Material }) => {
   const navigate = useNavigate();
   const isFree = material.exchange_type === "Free";
+  const isPromoted = (material as any).is_promoted && (material as any).promotion_expires_at && new Date((material as any).promotion_expires_at) > new Date();
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [imgFailed, setImgFailed] = useState(false);
