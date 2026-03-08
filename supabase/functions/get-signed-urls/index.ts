@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 function extractStoragePath(fileUrl: string): string | null {
+  // If it's already just a path (no URL prefix), return as-is
+  if (!fileUrl.startsWith("http")) return fileUrl;
   const match = fileUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/materials\/(.+?)(?:\?.*)?$/);
   if (match) return match[1];
   const fallback = fileUrl.match(/\/materials\/(.+?)(?:\?.*)?$/);
