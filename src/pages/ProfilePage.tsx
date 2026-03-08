@@ -18,6 +18,7 @@ const ProfilePage = () => {
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [myRequests, setMyRequests] = useState<MaterialRequest[]>([]);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editSchool, setEditSchool] = useState("");
