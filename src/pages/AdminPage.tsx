@@ -89,6 +89,7 @@ const AdminPage = () => {
   const [requests, setRequests] = useState<AdminRequest[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [badgeApplications, setBadgeApplications] = useState<BadgeApplication[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   // Credit adjustment state
