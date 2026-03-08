@@ -73,6 +73,19 @@ export interface Message {
   created_at: string;
 }
 
+export interface MaterialRequest {
+  id: string;
+  requester_user_id: string;
+  title: string;
+  description: string;
+  reward_credits: number;
+  status: 'open' | 'fulfilled' | 'cancelled';
+  fulfilled_by_user_id: string | null;
+  created_at: string;
+  expires_at: string | null;
+  profiles?: Profile;
+}
+
 export const subjects = ["All", "Biology", "Chemistry", "Computer Science", "Economics", "Engineering", "English", "Environmental Science", "History", "Mathematics", "Physics", "Spanish"];
 export const materialTypes = ["All", "Notes", "Study Guide", "Practice Problems", "Summary", "Exam Prep"];
 export const exchangeTypes = ["All", "Free", "Trade", "Paid"];
