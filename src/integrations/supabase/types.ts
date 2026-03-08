@@ -628,9 +628,7 @@ export type Database = {
         | { Args: { p_material_id: string }; Returns: Json }
         | { Args: { p_material_id: string; p_tier?: string }; Returns: Json }
       purchase_featured_badge: { Args: never; Returns: Json }
-      unlock_material:
-        | { Args: { p_material_id: string }; Returns: Json }
-        | { Args: { p_buyer_id: string; p_material_id: string }; Returns: Json }
+      unlock_material: { Args: { p_material_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
