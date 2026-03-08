@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag } from "lucide-react";
+import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
