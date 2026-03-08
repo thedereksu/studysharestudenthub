@@ -21,9 +21,11 @@ import ReportsTab from "@/components/admin/ReportsTab";
 interface AdminUser {
   id: string;
   name: string;
+  email: string | null;
   school: string | null;
   created_at: string;
   credit_balance: number;
+  is_blocked: boolean;
 }
 
 interface AdminMaterial {
