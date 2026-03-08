@@ -47,14 +47,14 @@ Deno.serve(async (req) => {
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("role", "admin")
       .maybeSingle();
 
-    console.log("Admin role check for", user.id, "result:", roleData, "error:", roleError);
+    console.log("Admin role check for", userId, "result:", roleData, "error:", roleError);
 
     if (!roleData) {
-      console.error("Admin action: User not admin", user.id);
+      console.error("Admin action: User not admin", userId);
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
