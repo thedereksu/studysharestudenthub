@@ -379,7 +379,7 @@ Deno.serve(async (req) => {
       // Insert into blocked_emails
       const { error: blockError } = await supabaseAdmin
         .from("blocked_emails")
-        .upsert({ email: normalizedEmail, reason: blockReason || null, blocked_by_admin_id: user.id }, { onConflict: "email" });
+        .upsert({ email: normalizedEmail, reason: blockReason || null, blocked_by_admin_id: userId }, { onConflict: "email" });
 
       if (blockError) {
         console.error("block_email error:", blockError);
