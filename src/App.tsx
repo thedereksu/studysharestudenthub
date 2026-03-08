@@ -9,6 +9,7 @@ import HomePage from "@/pages/HomePage";
 import SearchPage from "@/pages/SearchPage";
 import ListingDetail from "@/pages/ListingDetail";
 import CreateListing from "@/pages/CreateListing";
+import CreateRequestPage from "@/pages/CreateRequestPage";
 import EditMaterialPage from "@/pages/EditMaterialPage";
 import ProfilePage from "@/pages/ProfilePage";
 import MessagesPage from "@/pages/MessagesPage";
