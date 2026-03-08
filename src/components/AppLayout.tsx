@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, PlusCircle, MessageCircle, User, Search, Shield } from "lucide-react";
+import { Home, PlusCircle, MessageCircle, User, Search, Shield, HelpCircle } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useAdmin } from "@/hooks/useAdmin";
 import NotificationDropdown from "@/components/NotificationDropdown";
