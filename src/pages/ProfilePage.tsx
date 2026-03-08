@@ -163,6 +163,36 @@ const ProfilePage = () => {
                 <p className="text-[10px] text-muted-foreground">Credits</p>
               </div>
             </div>
+            {!profile?.has_featured_badge && (
+              <Button
+                variant="outline"
+                className="w-full mt-3"
+                disabled={buyingBadge}
+                onClick={async () => {
+                  if (!user) return;
+                  if (!confirm("Purchase Featured Contributor Badge for 50 credits?")) return;
+                  setBuyingBadge(true);
+                  try {
+                    const { data, error } = await supabase.rpc("purchase_featured_badge" as any);
+                    if (error) throw error;
+                    const result = data as unknown as { success: boolean; error?: string };
+                    if (!result.success) {
+                      toast({ title: result.error || "Purchase failed", variant: "destructive" });
+                    } else {
+                      toast({ title: "Featured Contributor Badge purchased!" });
+                      fetchData();
+                    }
+                  } catch (e: any) {
+                    toast({ title: "Purchase failed", description: sanitizeError(e), variant: "destructive" });
+                  } finally {
+                    setBuyingBadge(false);
+                  }
+                }}
+              >
+                <Award className="w-4 h-4 mr-1" />
+                {buyingBadge ? "Purchasing..." : "Purchase Featured Contributor Badge — 50 Credits"}
+              </Button>
+            )}
           </>
         )}
       </div>
