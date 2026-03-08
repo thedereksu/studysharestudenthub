@@ -26,6 +26,9 @@ export interface Material {
   file_type: string;
   files: MaterialFile[];
   credit_price: number;
+  ownership_confirmed: boolean;
+  is_promoted: boolean;
+  promotion_expires_at: string | null;
   created_at: string;
   updated_at: string;
   profiles?: Profile;
