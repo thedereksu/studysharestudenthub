@@ -162,36 +162,74 @@ const AdminPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>ID</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>School</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead className="w-16"></TableHead>
+                  <TableHead className="w-28">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium text-foreground">{u.name || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs font-mono">{u.id.slice(0, 8)}...</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{u.email || "—"}</TableCell>
+                    <TableCell>
+                      {u.is_blocked ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive"><Ban className="w-3 h-3" /> Blocked</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle className="w-3 h-3" /> Active</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{u.school || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       {u.id !== user?.id && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete user "{u.name}"?</AlertDialogTitle>
-                              <AlertDialogDescription>This action is irreversible. All materials, messages, reviews, and data for this user will be permanently deleted.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <div className="flex items-center gap-1">
+                          {u.email && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" title={u.is_blocked ? "Unblock Email" : "Block Email"}>
+                                  {u.is_blocked ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Ban className="w-4 h-4 text-amber-500" />}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>{u.is_blocked ? "Unblock" : "Block"} email "{u.email}"?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {u.is_blocked
+                                      ? "This will allow the user to log in again."
+                                      : "This will prevent the user from logging in or creating a new account with this email."}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => u.is_blocked ? handleUnblockEmail(u.id, u.email!) : handleBlockEmail(u.id, u.email!)}
+                                    className={u.is_blocked ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+                                  >
+                                    {u.is_blocked ? "Unblock" : "Block"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="Delete User"><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete user "{u.name}"?</AlertDialogTitle>
+                                <AlertDialogDescription>This action is irreversible. All materials, messages, reviews, and data for this user will be permanently deleted.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>

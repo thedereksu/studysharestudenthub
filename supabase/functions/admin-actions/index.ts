@@ -293,6 +293,78 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "block_email") {
+      const { email: blockEmail, reason: blockReason } = body;
+      if (!blockEmail) {
+        return new Response(JSON.stringify({ error: "Email required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const normalizedEmail = blockEmail.toLowerCase().trim();
+
+      // Insert into blocked_emails
+      const { error: blockError } = await supabaseAdmin
+        .from("blocked_emails")
+        .upsert({ email: normalizedEmail, reason: blockReason || null, blocked_by_admin_id: user.id }, { onConflict: "email" });
+
+      if (blockError) {
+        console.error("block_email error:", blockError);
+        return new Response(JSON.stringify({ error: blockError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: user.id,
+        action_type: "block_email",
+        target_id: targetId || normalizedEmail,
+        details: { email: normalizedEmail, reason: blockReason },
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "unblock_email") {
+      const { email: unblockEmail } = body;
+      if (!unblockEmail) {
+        return new Response(JSON.stringify({ error: "Email required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const normalizedEmail = unblockEmail.toLowerCase().trim();
+
+      const { error: unblockError } = await supabaseAdmin
+        .from("blocked_emails")
+        .delete()
+        .eq("email", normalizedEmail);
+
+      if (unblockError) {
+        console.error("unblock_email error:", unblockError);
+        return new Response(JSON.stringify({ error: unblockError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: user.id,
+        action_type: "unblock_email",
+        target_id: targetId || normalizedEmail,
+        details: { email: normalizedEmail },
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
