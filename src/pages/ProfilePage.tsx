@@ -31,11 +31,13 @@ const ProfilePage = () => {
 
   const fetchData = async () => {
     if (!user) return;
-    const [{ data: profileData }, { data: materialsData }, { data: reqData }] = await Promise.all([
+    const [{ data: profileData }, { data: materialsData }, { data: reqData }, { data: badgeApp }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
       supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("badge_applications" as any).select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
     ]);
+    setHasPendingApplication(!!badgeApp);
     const p = profileData as Profile | null;
     setProfile(p);
     setMaterials((materialsData as unknown as Material[]) || []);
