@@ -76,7 +76,21 @@ Deno.serve(async (req) => {
       ? (material.files as any[])
       : [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }];
 
-    // Always generate signed URLs so thumbnails can be displayed (blurred for non-accessible)
+    // If user cannot access, return metadata only — no signed URLs
+    if (!canAccess) {
+      return new Response(JSON.stringify({
+        canAccess: false,
+        files: files.map((f: any) => ({
+          file_url: null,
+          file_type: f.file_type,
+          file_name: f.file_name,
+        })),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Generate signed URLs only for authorized access
     const signedFiles = [];
     for (const f of files) {
       const path = extractStoragePath(f.file_url);
@@ -96,7 +110,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      canAccess,
+      canAccess: true,
       files: signedFiles,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
