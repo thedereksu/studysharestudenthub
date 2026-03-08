@@ -340,9 +340,50 @@ const ListingDetail = () => {
           )}
 
           {isOwner && (
-            <Button variant="outline" onClick={() => navigate(`/edit/${material.id}`)}>
-              <Pencil className="w-4 h-4 mr-1" /> Edit
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => navigate(`/edit/${material.id}`)}>
+                <Pencil className="w-4 h-4 mr-1" /> Edit
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={promoting || ((material as any).is_promoted && new Date((material as any).promotion_expires_at) > new Date())}
+                onClick={async () => {
+                  if (!user || !material) return;
+                  const isActive = (material as any).is_promoted && (material as any).promotion_expires_at && new Date((material as any).promotion_expires_at) > new Date();
+                  if (isActive) return;
+                  if (!confirm("Promote this item for 24 hours for 3 credits?")) return;
+                  setPromoting(true);
+                  try {
+                    // Check balance
+                    const { data: profile } = await supabase.from("profiles").select("credit_balance").eq("id", user.id).single();
+                    if (!profile || profile.credit_balance < 3) {
+                      toast({ title: "You need at least 3 credits to promote an item.", variant: "destructive" });
+                      return;
+                    }
+                    // Deduct credits
+                    const { error: deductErr } = await supabase.from("profiles").update({ credit_balance: profile.credit_balance - 3 }).eq("id", user.id);
+                    if (deductErr) throw deductErr;
+                    // Set promotion
+                    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                    const { error: promoErr } = await supabase.from("materials").update({ is_promoted: true, promotion_expires_at: expiresAt } as any).eq("id", material.id);
+                    if (promoErr) throw promoErr;
+                    // Record transaction
+                    await supabase.from("credit_transactions" as any).insert({ user_id: user.id, amount: -3, type: "promotion_purchase", description: "Item promotion for 24 hours" });
+                    toast({ title: "This item has been promoted for 24 hours." });
+                    setMaterial({ ...material, is_promoted: true, promotion_expires_at: expiresAt } as any);
+                  } catch (e: any) {
+                    toast({ title: "Promotion failed", description: sanitizeError(e), variant: "destructive" });
+                  } finally {
+                    setPromoting(false);
+                  }
+                }}
+              >
+                <Megaphone className="w-4 h-4 mr-1" />
+                {(material as any).is_promoted && (material as any).promotion_expires_at && new Date((material as any).promotion_expires_at) > new Date()
+                  ? "Promoted"
+                  : promoting ? "Promoting..." : "Promote"}
+              </Button>
+            </>
           )}
 
           <ReportModal materialId={material.id} />

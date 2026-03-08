@@ -262,6 +262,13 @@ const AdminPage = () => {
                     <TableCell className="font-medium text-foreground">{m.title}</TableCell>
                     <TableCell className="text-muted-foreground">{m.subject}</TableCell>
                     <TableCell className="text-muted-foreground">{m.exchange_type}</TableCell>
+                    <TableCell>
+                      {m.ownership_confirmed ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle className="w-3 h-3" /> Confirmed</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{(m.profiles as any)?.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(m.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>

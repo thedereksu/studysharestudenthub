@@ -45,6 +45,11 @@ const ListingCard = ({ material }: { material: Material }) => {
         ) : (
           <FileText className="w-8 h-8 text-muted-foreground" />
         )}
+        {isPromoted && (
+          <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+            ⭐ Promoted
+          </span>
+        )}
         <span
           className={`absolute top-2 right-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
             exchangeBadgeClass[material.exchange_type] || ""
