@@ -114,18 +114,20 @@ const AdminPage = () => {
   const fetchAll = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, matsRes, reqsRes, logsRes, reportsRes] = await Promise.all([
+      const [usersRes, matsRes, reqsRes, logsRes, reportsRes, badgeRes] = await Promise.all([
         callAdmin({ action: "list_users" }),
         callAdmin({ action: "list_materials" }),
         callAdmin({ action: "list_requests" }),
         callAdmin({ action: "list_audit_log" }),
         callAdmin({ action: "list_reports" }),
+        callAdmin({ action: "list_badge_applications" }),
       ]);
       setUsers(usersRes.users || []);
       setMaterials(matsRes.materials || []);
       setRequests(reqsRes.requests || []);
       setAuditLog(logsRes.logs || []);
       setReports(reportsRes.reports || []);
+      setBadgeApplications(badgeRes.applications || []);
     } catch (e: any) {
       toast({ title: "Failed to load admin data", description: sanitizeError(e), variant: "destructive" });
     }
