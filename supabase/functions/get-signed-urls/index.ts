@@ -7,10 +7,8 @@ const corsHeaders = {
 };
 
 function extractStoragePath(fileUrl: string): string | null {
-  // Extract path after /materials/ from the stored URL
   const match = fileUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/materials\/(.+?)(?:\?.*)?$/);
   if (match) return match[1];
-  // Fallback: try after /materials/
   const fallback = fileUrl.match(/\/materials\/(.+?)(?:\?.*)?$/);
   return fallback ? fallback[1] : null;
 }
@@ -33,7 +31,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch material
     const { data: material, error: matError } = await supabaseAdmin
       .from("materials")
       .select("*")
@@ -49,7 +46,6 @@ Deno.serve(async (req) => {
 
     const isFree = material.exchange_type === "Free";
 
-    // Check auth (optional - unauthenticated users can access free materials)
     let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
@@ -62,7 +58,6 @@ Deno.serve(async (req) => {
 
     const isOwner = userId === material.uploader_id;
 
-    // Check unlock status for non-free materials
     let hasUnlocked = false;
     if (userId && !isOwner && !isFree) {
       const { data: unlock } = await supabaseAdmin
@@ -81,26 +76,12 @@ Deno.serve(async (req) => {
       ? (material.files as any[])
       : [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }];
 
-    if (!canAccess) {
-      // Return file metadata without URLs
-      return new Response(JSON.stringify({
-        canAccess: false,
-        files: files.map((f: any) => ({
-          file_name: f.file_name,
-          file_type: f.file_type,
-          file_url: null,
-        })),
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Generate signed URLs (1 hour expiry)
+    // Always generate signed URLs so thumbnails can be displayed (blurred for non-accessible)
     const signedFiles = [];
     for (const f of files) {
       const path = extractStoragePath(f.file_url);
       if (!path) {
-        signedFiles.push({ ...f, file_url: null });
+        signedFiles.push({ file_url: null, file_type: f.file_type, file_name: f.file_name });
         continue;
       }
       const { data: signedData, error: signError } = await supabaseAdmin.storage
@@ -115,7 +96,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      canAccess: true,
+      canAccess,
       files: signedFiles,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

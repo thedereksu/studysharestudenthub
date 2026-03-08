@@ -13,15 +13,14 @@ const exchangeBadgeClass: Record<string, string> = {
 const ListingCard = ({ material }: { material: Material }) => {
   const navigate = useNavigate();
   const primaryFile = material.files?.[0] || { file_url: material.file_url, file_type: material.file_type };
-  const isImage = primaryFile.file_type.startsWith("image/");
+  const isImage = primaryFile.file_type?.startsWith("image/");
   const isFree = material.exchange_type === "Free";
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only fetch signed URL for thumbnail if it's an image
     if (!isImage) return;
-    
+
     getSignedUrls(material.id).then((result) => {
       if (result.files?.[0]?.file_url) {
         setThumbnailUrl(result.files[0].file_url);
