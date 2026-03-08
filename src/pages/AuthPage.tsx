@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { sanitizeError } from "@/lib/errors";
 
 const GoogleIcon = () => (
@@ -23,7 +24,14 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
+  const { blockedMessage } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (blockedMessage) {
+      toast({ title: blockedMessage, variant: "destructive" });
+    }
+  }, [blockedMessage]);
 
   const checkBlocked = async (checkEmail: string): Promise<boolean> => {
     const { data, error } = await supabase.rpc("is_email_blocked", { check_email: checkEmail });
