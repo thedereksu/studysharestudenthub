@@ -28,13 +28,15 @@ const ProfilePage = () => {
 
   const fetchData = async () => {
     if (!user) return;
-    const [{ data: profileData }, { data: materialsData }] = await Promise.all([
+    const [{ data: profileData }, { data: materialsData }, { data: reqData }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
     ]);
     const p = profileData as Profile | null;
     setProfile(p);
     setMaterials((materialsData as unknown as Material[]) || []);
+    setMyRequests((reqData as unknown as MaterialRequest[]) || []);
     if (p) {
       setEditName(p.name);
       setEditSchool(p.school || "");
