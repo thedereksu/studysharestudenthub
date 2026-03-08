@@ -12,21 +12,21 @@ const exchangeBadgeClass: Record<string, string> = {
 
 const ListingCard = ({ material }: { material: Material }) => {
   const navigate = useNavigate();
-  const primaryFile = material.files?.[0] || { file_url: material.file_url, file_type: material.file_type };
-  const isImage = primaryFile.file_type?.startsWith("image/");
   const isFree = material.exchange_type === "Free";
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
-    if (!isImage) return;
-
+    // Always fetch signed URLs to attempt thumbnail display
     getSignedUrls(material.id).then((result) => {
       if (result.files?.[0]?.file_url) {
         setThumbnailUrl(result.files[0].file_url);
       }
     });
-  }, [material.id, isImage]);
+  }, [material.id]);
+
+  const showImage = thumbnailUrl && !imgFailed;
 
   return (
     <button
@@ -34,10 +34,11 @@ const ListingCard = ({ material }: { material: Material }) => {
       className="bg-card rounded-lg border border-border overflow-hidden text-left w-full animate-fade-in hover:shadow-md transition-shadow"
     >
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center overflow-hidden">
-        {isImage && thumbnailUrl ? (
+        {showImage ? (
           <img
             src={thumbnailUrl}
             alt={material.title}
+            onError={() => setImgFailed(true)}
             className={`w-full h-full object-cover ${isFree ? "" : "blur-sm scale-110"}`}
           />
         ) : (

@@ -26,14 +26,14 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {!hideNav && user && (
+      {!hideNav && (
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b border-border">
           <div className="max-w-lg mx-auto px-4 h-12 flex items-center justify-between">
             <button onClick={() => navigate("/")} className="flex items-center gap-2">
               <img src={logoImg} alt="StudySwap" className="w-7 h-7" />
               <span className="font-serif text-lg font-semibold text-foreground">StudySwap</span>
             </button>
-            <NotificationDropdown />
+            {user && <NotificationDropdown />}
           </div>
         </header>
       )}
