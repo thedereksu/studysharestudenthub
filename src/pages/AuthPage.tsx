@@ -25,11 +25,33 @@ const AuthPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const checkBlocked = async (checkEmail: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("is_email_blocked", { check_email: checkEmail });
+    if (error) {
+      console.error("Block check error:", error);
+      return false;
+    }
+    return !!data;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Check if email is blocked before attempting auth
+      const blocked = await checkBlocked(email);
+      if (blocked) {
+        toast({
+          title: isLogin
+            ? "This account has been blocked. Contact support if you believe this is an error."
+            : "This email address is not allowed to register.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;

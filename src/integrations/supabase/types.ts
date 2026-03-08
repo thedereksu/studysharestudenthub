@@ -41,6 +41,30 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_emails: {
+        Row: {
+          blocked_by_admin_id: string
+          created_at: string
+          email: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_by_admin_id: string
+          created_at?: string
+          email: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_by_admin_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           content: string
@@ -485,6 +509,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_email_blocked: { Args: { check_email: string }; Returns: boolean }
       unlock_material:
         | { Args: { p_material_id: string }; Returns: Json }
         | { Args: { p_buyer_id: string; p_material_id: string }; Returns: Json }
