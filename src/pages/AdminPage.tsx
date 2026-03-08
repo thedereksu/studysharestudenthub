@@ -68,6 +68,16 @@ interface AuditEntry {
   created_at: string;
 }
 
+interface BadgeApplication {
+  id: string;
+  user_id: string;
+  reason: string;
+  status: string;
+  created_at: string;
+  applicant_name: string | null;
+  applicant_email: string | null;
+}
+
 const AdminPage = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
