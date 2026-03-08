@@ -536,6 +536,7 @@ const AdminPage = () => {
               </TableBody>
             </Table>
           )}
+        </TabsContent>
 
         <TabsContent value="reports">
           <ReportsTab reports={reports} loading={loadingData} onRefresh={fetchAll} />
