@@ -23,6 +23,7 @@ const ProfilePage = () => {
   const [editSchool, setEditSchool] = useState("");
   const [editBio, setEditBio] = useState("");
   const [saving, setSaving] = useState(false);
+  const [buyingBadge, setBuyingBadge] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
