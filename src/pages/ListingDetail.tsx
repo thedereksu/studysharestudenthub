@@ -137,7 +137,6 @@ const ListingDetail = () => {
     try {
       const { data, error } = await supabase.rpc("unlock_material", {
         p_material_id: material.id,
-        p_buyer_id: user.id,
       });
       if (error) throw error;
       const result = data as { success: boolean; error?: string };
