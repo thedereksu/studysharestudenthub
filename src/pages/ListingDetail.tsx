@@ -69,6 +69,7 @@ const ListingDetail = () => {
   const [userRating, setUserRating] = useState(0);
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [promoting, setPromoting] = useState(false);
 
   const fetchSignedUrls = async (materialId: string) => {
     const result = await getSignedUrls(materialId);
