@@ -364,6 +364,59 @@ const AdminPage = () => {
               </TableBody>
             </Table>
           )}
+
+          {/* Requests Section */}
+          <h3 className="text-lg font-semibold text-foreground mt-8 mb-3 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-primary" /> Material Requests
+          </h3>
+          {loadingData ? <p className="text-muted-foreground text-sm">Loading...</p> : requests.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4 text-center">No requests.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Reward</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Requester</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-16"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {requests.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium text-foreground">{r.title}</TableCell>
+                    <TableCell className="text-foreground">{r.reward_credits} credits</TableCell>
+                    <TableCell>
+                      <span className={`text-xs font-medium ${r.status === 'open' ? 'text-primary' : r.status === 'fulfilled' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {r.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{(r.profiles as any)?.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete request "{r.title}"?</AlertDialogTitle>
+                            <AlertDialogDescription>This will delete the request{r.status === 'open' ? ' and refund the reserved credits to the requester' : ''}.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteRequest(r.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </TabsContent>
 
         <TabsContent value="reports">
