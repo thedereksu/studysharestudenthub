@@ -56,6 +56,20 @@
     --badge-trade-text: 36 60% 30%;
     --badge-paid: 200 40% 88%;
     --badge-paid-text: 200 40% 30%;
+
+    /* Subject category colors */
+    --subject-science: 152 35% 92%;
+    --subject-science-icon: 152 40% 38%;
+    --subject-science-border: 152 30% 82%;
+    --subject-language: 215 45% 92%;
+    --subject-language-icon: 215 50% 42%;
+    --subject-language-border: 215 35% 82%;
+    --subject-social: 270 35% 92%;
+    --subject-social-icon: 270 40% 45%;
+    --subject-social-border: 270 25% 82%;
+    --subject-default: 40 20% 94%;
+    --subject-default-icon: 200 10% 50%;
+    --subject-default-border: 40 20% 88%;
   }
 
   .dark {
