@@ -104,6 +104,7 @@ const CreateListing = () => {
         file_url: primaryFile.file_url,
         file_type: primaryFile.file_type,
         files: uploadedFiles,
+        ownership_confirmed: true,
       });
 
       if (insertError) throw insertError;
