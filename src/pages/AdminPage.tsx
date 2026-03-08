@@ -49,6 +49,17 @@ interface AdminMaterial {
   profiles?: { name: string } | null;
 }
 
+interface AdminRequest {
+  id: string;
+  title: string;
+  description: string;
+  reward_credits: number;
+  status: string;
+  requester_user_id: string;
+  created_at: string;
+  profiles?: { name: string } | null;
+}
+
 interface AuditEntry {
   id: string;
   admin_id: string;
