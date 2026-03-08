@@ -169,6 +169,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "list_users") {
+      // Get profiles
       const { data: profiles, error: profilesError } = await supabaseAdmin
         .from("profiles")
         .select("*")
@@ -176,7 +177,29 @@ Deno.serve(async (req) => {
 
       console.log("list_users result:", profiles?.length, "error:", profilesError);
 
-      return new Response(JSON.stringify({ users: profiles || [] }), {
+      // Get auth users to get emails
+      const { data: { users: authUsers }, error: authListError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      console.log("auth users result:", authUsers?.length, "error:", authListError);
+
+      // Get blocked emails
+      const { data: blockedEmails } = await supabaseAdmin
+        .from("blocked_emails")
+        .select("email");
+      const blockedSet = new Set((blockedEmails || []).map((b: any) => b.email.toLowerCase()));
+
+      // Map emails to profiles
+      const emailMap = new Map<string, string>();
+      for (const au of authUsers || []) {
+        if (au.email) emailMap.set(au.id, au.email);
+      }
+
+      const usersWithEmail = (profiles || []).map((p: any) => ({
+        ...p,
+        email: emailMap.get(p.id) || null,
+        is_blocked: emailMap.get(p.id) ? blockedSet.has(emailMap.get(p.id)!.toLowerCase()) : false,
+      }));
+
+      return new Response(JSON.stringify({ users: usersWithEmail }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
