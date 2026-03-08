@@ -373,7 +373,7 @@ const ListingDetail = () => {
                 }}
               >
                 <Megaphone className="w-4 h-4 mr-1" />
-                {(material as any).is_promoted && (material as any).promotion_expires_at && new Date((material as any).promotion_expires_at) > new Date()
+                {material.is_promoted && material.promotion_expires_at && new Date(material.promotion_expires_at) > new Date()
                   ? "Promoted"
                   : promoting ? "Promoting..." : "Promote"}
               </Button>
