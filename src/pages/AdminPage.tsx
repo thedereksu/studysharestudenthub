@@ -246,14 +246,15 @@ const AdminPage = () => {
           {loadingData ? <p className="text-muted-foreground text-sm">Loading...</p> : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Exchange</TableHead>
-                  <TableHead>Uploader</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="w-16"></TableHead>
-                </TableRow>
+                 <TableRow>
+                   <TableHead>Title</TableHead>
+                   <TableHead>Subject</TableHead>
+                   <TableHead>Exchange</TableHead>
+                   <TableHead>Ownership</TableHead>
+                   <TableHead>Uploader</TableHead>
+                   <TableHead>Date</TableHead>
+                   <TableHead className="w-16"></TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {materials.map((m) => (
