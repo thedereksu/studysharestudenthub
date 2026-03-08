@@ -22,6 +22,16 @@ const SearchPage = () => {
       if (error) {
         console.error("Search query error:", error);
       }
+      if (data) {
+        const now = new Date().toISOString();
+        data.sort((a: any, b: any) => {
+          const aPromoted = a.is_promoted && a.promotion_expires_at && a.promotion_expires_at > now;
+          const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
+          if (aPromoted && !bPromoted) return -1;
+          if (!aPromoted && bPromoted) return 1;
+          return 0;
+        });
+      }
       setMaterials((data as unknown as Material[]) || []);
       setLoading(false);
     };
