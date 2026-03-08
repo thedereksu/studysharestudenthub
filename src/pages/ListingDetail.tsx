@@ -346,31 +346,25 @@ const ListingDetail = () => {
               </Button>
               <Button
                 variant="secondary"
-                disabled={promoting || ((material as any).is_promoted && new Date((material as any).promotion_expires_at) > new Date())}
+                disabled={promoting || (material.is_promoted && !!material.promotion_expires_at && new Date(material.promotion_expires_at) > new Date())}
                 onClick={async () => {
                   if (!user || !material) return;
-                  const isActive = (material as any).is_promoted && (material as any).promotion_expires_at && new Date((material as any).promotion_expires_at) > new Date();
+                  const isActive = material.is_promoted && material.promotion_expires_at && new Date(material.promotion_expires_at) > new Date();
                   if (isActive) return;
                   if (!confirm("Promote this item for 24 hours for 3 credits?")) return;
                   setPromoting(true);
                   try {
-                    // Check balance
-                    const { data: profile } = await supabase.from("profiles").select("credit_balance").eq("id", user.id).single();
-                    if (!profile || profile.credit_balance < 3) {
-                      toast({ title: "You need at least 3 credits to promote an item.", variant: "destructive" });
-                      return;
+                    const { data, error } = await supabase.rpc("promote_material", {
+                      p_material_id: material.id,
+                    });
+                    if (error) throw error;
+                    const result = data as unknown as { success: boolean; error?: string };
+                    if (!result.success) {
+                      toast({ title: result.error || "Promotion failed", variant: "destructive" });
+                    } else {
+                      toast({ title: "This item has been promoted for 24 hours." });
+                      setMaterial({ ...material, is_promoted: true, promotion_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
                     }
-                    // Deduct credits
-                    const { error: deductErr } = await supabase.from("profiles").update({ credit_balance: profile.credit_balance - 3 }).eq("id", user.id);
-                    if (deductErr) throw deductErr;
-                    // Set promotion
-                    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                    const { error: promoErr } = await supabase.from("materials").update({ is_promoted: true, promotion_expires_at: expiresAt } as any).eq("id", material.id);
-                    if (promoErr) throw promoErr;
-                    // Record transaction
-                    await supabase.from("credit_transactions" as any).insert({ user_id: user.id, amount: -3, type: "promotion_purchase", description: "Item promotion for 24 hours" });
-                    toast({ title: "This item has been promoted for 24 hours." });
-                    setMaterial({ ...material, is_promoted: true, promotion_expires_at: expiresAt } as any);
                   } catch (e: any) {
                     toast({ title: "Promotion failed", description: sanitizeError(e), variant: "destructive" });
                   } finally {
