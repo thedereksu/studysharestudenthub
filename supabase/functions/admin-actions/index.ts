@@ -291,6 +291,96 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "adjust_credits") {
+      const { targetUserId, amount, adjustmentType, reason } = body;
+      if (!targetUserId || !amount || !adjustmentType) {
+        return new Response(JSON.stringify({ error: "Missing fields" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const numAmount = Math.abs(parseInt(amount));
+      if (isNaN(numAmount) || numAmount <= 0) {
+        return new Response(JSON.stringify({ error: "Invalid amount" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const delta = adjustmentType === "add" ? numAmount : -numAmount;
+
+      // Check current balance for subtract
+      if (delta < 0) {
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("credit_balance")
+          .eq("id", targetUserId)
+          .single();
+        if (!profile || profile.credit_balance + delta < 0) {
+          return new Response(JSON.stringify({ error: "Insufficient balance" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Update balance
+      const { error: updateError } = await supabaseAdmin.rpc("", {});
+      // Use raw update instead
+      const { error: balanceError } = await supabaseAdmin
+        .from("profiles")
+        .update({ credit_balance: supabaseAdmin.rpc ? undefined : undefined })
+        .eq("id", targetUserId);
+
+      // Actually we need to do an increment. Let's just fetch and update.
+      const { data: currentProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("credit_balance")
+        .eq("id", targetUserId)
+        .single();
+
+      if (!currentProfile) {
+        return new Response(JSON.stringify({ error: "User not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const newBalance = currentProfile.credit_balance + delta;
+      const { error: updErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ credit_balance: newBalance })
+        .eq("id", targetUserId);
+
+      if (updErr) {
+        return new Response(JSON.stringify({ error: updErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Record transaction
+      await supabaseAdmin.from("credit_transactions").insert({
+        user_id: targetUserId,
+        amount: delta,
+        type: "admin_adjustment",
+        description: reason || `Admin ${adjustmentType === "add" ? "added" : "subtracted"} ${numAmount} credits`,
+      });
+
+      // Audit log
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: user.id,
+        action_type: "adjust_credits",
+        target_id: targetUserId,
+        details: { amount: delta, reason, new_balance: newBalance },
+      });
+
+      return new Response(JSON.stringify({ success: true, new_balance: newBalance }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "block_email") {
       const { email: blockEmail, reason: blockReason } = body;
       if (!blockEmail) {
