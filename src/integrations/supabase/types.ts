@@ -41,6 +41,36 @@ export type Database = {
         }
         Relationships: []
       }
+      badge_applications: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          reviewed_by_admin_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string
+          reviewed_by_admin_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          reviewed_by_admin_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       blocked_emails: {
         Row: {
           blocked_by_admin_id: string
@@ -603,6 +633,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_for_featured_badge: { Args: { p_reason: string }; Returns: Json }
       cancel_material_request: { Args: { p_request_id: string }; Returns: Json }
       create_material_request: {
         Args: {
@@ -627,7 +658,6 @@ export type Database = {
       promote_material:
         | { Args: { p_material_id: string }; Returns: Json }
         | { Args: { p_material_id: string; p_tier?: string }; Returns: Json }
-      purchase_featured_badge: { Args: never; Returns: Json }
       unlock_material: { Args: { p_material_id: string }; Returns: Json }
     }
     Enums: {
