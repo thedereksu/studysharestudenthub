@@ -187,6 +187,57 @@ export type Database = {
           },
         ]
       }
+      material_requests: {
+        Row: {
+          created_at: string
+          description: string
+          expires_at: string | null
+          fulfilled_by_user_id: string | null
+          id: string
+          requester_user_id: string
+          reward_credits: number
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          fulfilled_by_user_id?: string | null
+          id?: string
+          requester_user_id: string
+          reward_credits: number
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          fulfilled_by_user_id?: string | null
+          id?: string
+          requester_user_id?: string
+          reward_credits?: number
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_requests_fulfilled_by_user_id_fkey"
+            columns: ["fulfilled_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_requests_requester_user_id_fkey"
+            columns: ["requester_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           created_at: string
@@ -552,6 +603,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_material_request: { Args: { p_request_id: string }; Returns: Json }
+      create_material_request: {
+        Args: {
+          p_description: string
+          p_reward_credits: number
+          p_title: string
+        }
+        Returns: Json
+      }
+      fulfill_material_request: {
+        Args: { p_fulfiller_id: string; p_request_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
