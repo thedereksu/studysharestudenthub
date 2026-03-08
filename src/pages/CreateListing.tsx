@@ -81,12 +81,8 @@ const CreateListing = () => {
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from("materials")
-          .getPublicUrl(filePath);
-
         uploadedFiles.push({
-          file_url: publicUrl,
+          file_url: filePath,
           file_type: file.type,
           file_name: file.name,
         });

@@ -106,8 +106,7 @@ const EditMaterialPage = () => {
         const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const { error: uploadError } = await supabase.storage.from("materials").upload(filePath, file);
         if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from("materials").getPublicUrl(filePath);
-        uploadedNew.push({ file_url: publicUrl, file_type: file.type, file_name: file.name });
+        uploadedNew.push({ file_url: filePath, file_type: file.type, file_name: file.name });
       }
 
       // Remove deleted files from storage
