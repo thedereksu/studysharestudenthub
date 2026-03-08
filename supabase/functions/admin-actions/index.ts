@@ -390,7 +390,7 @@ Deno.serve(async (req) => {
       }
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "block_email",
         target_id: targetId || normalizedEmail,
         details: { email: normalizedEmail, reason: blockReason },
