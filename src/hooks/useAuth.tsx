@@ -21,14 +21,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const checkBlockedAndSignOut = async (email: string | undefined) => {
+    if (!email) return false;
+    const { data } = await supabase.rpc("is_email_blocked", { check_email: email });
+    if (data) {
+      await supabase.auth.signOut();
+      return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const blocked = await checkBlockedAndSignOut(session.user.email);
+        if (blocked) {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const blocked = await checkBlockedAndSignOut(session.user.email);
+        if (blocked) {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
