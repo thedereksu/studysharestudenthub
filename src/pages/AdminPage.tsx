@@ -35,6 +35,9 @@ interface AdminMaterial {
   exchange_type: string;
   uploader_id: string;
   created_at: string;
+  ownership_confirmed?: boolean;
+  is_promoted?: boolean;
+  promotion_expires_at?: string | null;
   profiles?: { name: string } | null;
 }
 
