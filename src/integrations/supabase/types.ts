@@ -200,6 +200,7 @@ export type Database = {
           is_promoted: boolean
           ownership_confirmed: boolean
           promotion_expires_at: string | null
+          promotion_tier: string | null
           subject: string
           title: string
           type: string
@@ -218,6 +219,7 @@ export type Database = {
           is_promoted?: boolean
           ownership_confirmed?: boolean
           promotion_expires_at?: string | null
+          promotion_tier?: string | null
           subject: string
           title: string
           type: string
@@ -236,6 +238,7 @@ export type Database = {
           is_promoted?: boolean
           ownership_confirmed?: boolean
           promotion_expires_at?: string | null
+          promotion_tier?: string | null
           subject?: string
           title?: string
           type?: string
@@ -375,6 +378,7 @@ export type Database = {
           bio: string | null
           created_at: string
           credit_balance: number
+          has_featured_badge: boolean
           id: string
           name: string
           school: string | null
@@ -384,6 +388,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           credit_balance?: number
+          has_featured_badge?: boolean
           id: string
           name?: string
           school?: string | null
@@ -393,6 +398,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           credit_balance?: number
+          has_featured_badge?: boolean
           id?: string
           name?: string
           school?: string | null
@@ -554,7 +560,10 @@ export type Database = {
         Returns: boolean
       }
       is_email_blocked: { Args: { check_email: string }; Returns: boolean }
-      promote_material: { Args: { p_material_id: string }; Returns: Json }
+      promote_material:
+        | { Args: { p_material_id: string }; Returns: Json }
+        | { Args: { p_material_id: string; p_tier?: string }; Returns: Json }
+      purchase_featured_badge: { Args: never; Returns: Json }
       unlock_material:
         | { Args: { p_material_id: string }; Returns: Json }
         | { Args: { p_buyer_id: string; p_material_id: string }; Returns: Json }
