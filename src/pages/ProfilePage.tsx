@@ -143,6 +143,11 @@ const ProfilePage = () => {
                 <h2 className="text-lg font-sans font-semibold text-foreground">{profile?.name || "Set your name"}</h2>
                 {profile?.school && <p className="text-xs text-muted-foreground">{profile.school}</p>}
                 <ContributorBadge uploadCount={materials.length} />
+                {profile?.has_featured_badge && (
+                  <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
+                    <Award className="w-3 h-3" /> Featured Contributor
+                  </Badge>
+                )}
               </div>
             </div>
             {profile?.bio && <p className="text-sm text-muted-foreground leading-relaxed mb-4">{profile.bio}</p>}
