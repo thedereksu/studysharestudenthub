@@ -437,6 +437,107 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "list_badge_applications") {
+      const { data: apps, error: appsError } = await supabaseAdmin
+        .from("badge_applications")
+        .select("*, profiles!badge_applications_user_id_fkey(name)")
+        .order("created_at", { ascending: false });
+
+      console.log("list_badge_applications result:", apps?.length, "error:", appsError);
+
+      // Get emails for applicants
+      const { data: { users: authUsers2 } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      const emailMap2 = new Map<string, string>();
+      for (const au of authUsers2 || []) {
+        if (au.email) emailMap2.set(au.id, au.email);
+      }
+
+      const mapped = (apps || []).map((a: any) => ({
+        ...a,
+        applicant_name: a.profiles?.name || null,
+        applicant_email: emailMap2.get(a.user_id) || null,
+        profiles: undefined,
+      }));
+
+      return new Response(JSON.stringify({ applications: mapped }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "review_badge_application") {
+      const { decision } = body; // "approved" or "denied"
+      if (!targetId || !decision || !["approved", "denied"].includes(decision)) {
+        return new Response(JSON.stringify({ error: "Invalid decision" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: app } = await supabaseAdmin
+        .from("badge_applications")
+        .select("*")
+        .eq("id", targetId)
+        .single();
+
+      if (!app) {
+        return new Response(JSON.stringify({ error: "Application not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (app.status !== "pending") {
+        return new Response(JSON.stringify({ error: "Application already reviewed" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Update application status
+      await supabaseAdmin
+        .from("badge_applications")
+        .update({ status: decision, reviewed_by_admin_id: userId, updated_at: new Date().toISOString() })
+        .eq("id", targetId);
+
+      if (decision === "approved") {
+        // Grant the badge
+        await supabaseAdmin
+          .from("profiles")
+          .update({ has_featured_badge: true })
+          .eq("id", app.user_id);
+      } else {
+        // Denied — refund credits
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("credit_balance")
+          .eq("id", app.user_id)
+          .single();
+        if (profile) {
+          await supabaseAdmin
+            .from("profiles")
+            .update({ credit_balance: profile.credit_balance + 15 })
+            .eq("id", app.user_id);
+          await supabaseAdmin.from("credit_transactions").insert({
+            user_id: app.user_id,
+            amount: 15,
+            type: "badge_application_refund",
+            description: "Badge application denied — credits refunded",
+          });
+        }
+      }
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: `badge_application_${decision}`,
+        target_id: targetId,
+        details: { applicant_id: app.user_id },
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "list_requests") {
       const { data: reqs, error: reqsError } = await supabaseAdmin
         .from("material_requests")

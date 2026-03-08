@@ -24,15 +24,20 @@ const ProfilePage = () => {
   const [editSchool, setEditSchool] = useState("");
   const [editBio, setEditBio] = useState("");
   const [saving, setSaving] = useState(false);
-  const [buyingBadge, setBuyingBadge] = useState(false);
+  const [applyingBadge, setApplyingBadge] = useState(false);
+  const [badgeReason, setBadgeReason] = useState("");
+  const [showBadgeForm, setShowBadgeForm] = useState(false);
+  const [hasPendingApplication, setHasPendingApplication] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
-    const [{ data: profileData }, { data: materialsData }, { data: reqData }] = await Promise.all([
+    const [{ data: profileData }, { data: materialsData }, { data: reqData }, { data: badgeApp }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
       supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("badge_applications" as any).select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
     ]);
+    setHasPendingApplication(!!badgeApp);
     const p = profileData as Profile | null;
     setProfile(p);
     setMaterials((materialsData as unknown as Material[]) || []);
@@ -167,34 +172,64 @@ const ProfilePage = () => {
               </div>
             </div>
             {!profile?.has_featured_badge && (
-              <Button
-                variant="outline"
-                className="w-full mt-3"
-                disabled={buyingBadge}
-                onClick={async () => {
-                  if (!user) return;
-                  if (!confirm("Purchase Featured Contributor Badge for 50 credits?")) return;
-                  setBuyingBadge(true);
-                  try {
-                    const { data, error } = await supabase.rpc("purchase_featured_badge" as any);
-                    if (error) throw error;
-                    const result = data as unknown as { success: boolean; error?: string };
-                    if (!result.success) {
-                      toast({ title: result.error || "Purchase failed", variant: "destructive" });
-                    } else {
-                      toast({ title: "Featured Contributor Badge purchased!" });
-                      fetchData();
-                    }
-                  } catch (e: any) {
-                    toast({ title: "Purchase failed", description: sanitizeError(e), variant: "destructive" });
-                  } finally {
-                    setBuyingBadge(false);
-                  }
-                }}
-              >
-                <Award className="w-4 h-4 mr-1" />
-                {buyingBadge ? "Purchasing..." : "Purchase Featured Contributor Badge — 50 Credits"}
-              </Button>
+              hasPendingApplication ? (
+                <div className="w-full mt-3 text-center py-2 px-3 rounded-lg border border-border bg-muted/50">
+                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                    <Award className="w-4 h-4" /> Your badge application is pending review
+                  </p>
+                </div>
+              ) : showBadgeForm ? (
+                <div className="mt-3 space-y-3 border border-border rounded-lg p-4 bg-muted/30">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-1">
+                    <Award className="w-4 h-4 text-primary" /> Apply for Featured Contributor Badge
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Tell us why you deserve the Featured Contributor badge. Application fee: 15 credits.</p>
+                  <textarea
+                    value={badgeReason}
+                    onChange={(e) => setBadgeReason(e.target.value)}
+                    rows={3}
+                    placeholder="Explain why you should receive the Featured Contributor badge..."
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      disabled={applyingBadge || badgeReason.trim().length < 10}
+                      onClick={async () => {
+                        if (!user) return;
+                        setApplyingBadge(true);
+                        try {
+                          const { data, error } = await supabase.rpc("apply_for_featured_badge" as any, { p_reason: badgeReason });
+                          if (error) throw error;
+                          const result = data as unknown as { success: boolean; error?: string };
+                          if (!result.success) {
+                            toast({ title: result.error || "Application failed", variant: "destructive" });
+                          } else {
+                            toast({ title: "Application submitted! An admin will review it." });
+                            setShowBadgeForm(false);
+                            setBadgeReason("");
+                            fetchData();
+                          }
+                        } catch (e: any) {
+                          toast({ title: "Application failed", description: sanitizeError(e), variant: "destructive" });
+                        } finally {
+                          setApplyingBadge(false);
+                        }
+                      }}
+                    >
+                      {applyingBadge ? "Submitting..." : "Submit Application — 15 Credits"}
+                    </Button>
+                    <Button variant="outline" className="flex-1" onClick={() => { setShowBadgeForm(false); setBadgeReason(""); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="outline" className="w-full mt-3" onClick={() => setShowBadgeForm(true)}>
+                  <Award className="w-4 h-4 mr-1" />
+                  Apply for Featured Contributor Badge — 15 Credits
+                </Button>
+              )
             )}
           </>
         )}

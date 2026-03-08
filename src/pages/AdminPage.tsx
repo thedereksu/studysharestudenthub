@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins, HelpCircle } from "lucide-react";
+import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins, HelpCircle, Award, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,6 +68,16 @@ interface AuditEntry {
   created_at: string;
 }
 
+interface BadgeApplication {
+  id: string;
+  user_id: string;
+  reason: string;
+  status: string;
+  created_at: string;
+  applicant_name: string | null;
+  applicant_email: string | null;
+}
+
 const AdminPage = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -79,6 +89,7 @@ const AdminPage = () => {
   const [requests, setRequests] = useState<AdminRequest[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [badgeApplications, setBadgeApplications] = useState<BadgeApplication[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   // Credit adjustment state
@@ -103,18 +114,20 @@ const AdminPage = () => {
   const fetchAll = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, matsRes, reqsRes, logsRes, reportsRes] = await Promise.all([
+      const [usersRes, matsRes, reqsRes, logsRes, reportsRes, badgeRes] = await Promise.all([
         callAdmin({ action: "list_users" }),
         callAdmin({ action: "list_materials" }),
         callAdmin({ action: "list_requests" }),
         callAdmin({ action: "list_audit_log" }),
         callAdmin({ action: "list_reports" }),
+        callAdmin({ action: "list_badge_applications" }),
       ]);
       setUsers(usersRes.users || []);
       setMaterials(matsRes.materials || []);
       setRequests(reqsRes.requests || []);
       setAuditLog(logsRes.logs || []);
       setReports(reportsRes.reports || []);
+      setBadgeApplications(badgeRes.applications || []);
     } catch (e: any) {
       toast({ title: "Failed to load admin data", description: sanitizeError(e), variant: "destructive" });
     }
@@ -223,6 +236,7 @@ const AdminPage = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-1" /> Users</TabsTrigger>
           <TabsTrigger value="materials"><BookOpen className="w-4 h-4 mr-1" /> Materials</TabsTrigger>
+          <TabsTrigger value="badges"><Award className="w-4 h-4 mr-1" /> Badges</TabsTrigger>
           <TabsTrigger value="reports"><Flag className="w-4 h-4 mr-1" /> Reports</TabsTrigger>
           <TabsTrigger value="audit"><ClipboardList className="w-4 h-4 mr-1" /> Audit Log</TabsTrigger>
         </TabsList>
@@ -411,6 +425,111 @@ const AdminPage = () => {
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        <TabsContent value="badges">
+          {loadingData ? <p className="text-muted-foreground text-sm">Loading...</p> : badgeApplications.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-8 text-center">No badge applications.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Applicant</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-32">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {badgeApplications.map((app) => (
+                  <TableRow key={app.id}>
+                    <TableCell>
+                      <div>
+                        <span className="font-medium text-foreground">{app.applicant_name || "—"}</span>
+                        {app.applicant_email && <p className="text-xs text-muted-foreground">{app.applicant_email}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{app.reason}</TableCell>
+                    <TableCell>
+                      <span className={`text-xs font-medium ${
+                        app.status === 'pending' ? 'text-amber-500' :
+                        app.status === 'approved' ? 'text-green-600' :
+                        'text-destructive'
+                      }`}>
+                        {app.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{new Date(app.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {app.status === 'pending' && (
+                        <div className="flex items-center gap-1">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="Approve">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Approve badge application?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will grant {app.applicant_name || "this user"} the Featured Contributor badge.
+                                  <br /><br />
+                                  <strong>Reason:</strong> {app.reason}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={async () => {
+                                  try {
+                                    await callAdmin({ action: "review_badge_application", targetId: app.id, decision: "approved" });
+                                    toast({ title: "Application approved — badge granted" });
+                                    fetchAll();
+                                  } catch (e: any) {
+                                    toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+                                  }
+                                }}>Approve</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="Deny">
+                                <XCircle className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Deny badge application?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will deny the application and refund 15 credits to {app.applicant_name || "the user"}.
+                                  <br /><br />
+                                  <strong>Reason:</strong> {app.reason}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={async () => {
+                                  try {
+                                    await callAdmin({ action: "review_badge_application", targetId: app.id, decision: "denied" });
+                                    toast({ title: "Application denied — credits refunded" });
+                                    fetchAll();
+                                  } catch (e: any) {
+                                    toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+                                  }
+                                }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Deny</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
