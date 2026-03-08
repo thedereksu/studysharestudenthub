@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from("materials").delete().eq("id", targetId);
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "delete_material",
         target_id: targetId,
         details: { title: material.title, uploader_id: material.uploader_id },
