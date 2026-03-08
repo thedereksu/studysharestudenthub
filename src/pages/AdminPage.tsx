@@ -141,6 +141,16 @@ const AdminPage = () => {
     }
   };
 
+  const handleDeleteRequest = async (id: string) => {
+    try {
+      await callAdmin({ action: "delete_request", targetId: id });
+      toast({ title: "Request deleted and credits refunded" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
   const handleDeleteUser = async (id: string) => {
     try {
       await callAdmin({ action: "delete_user", targetId: id });
