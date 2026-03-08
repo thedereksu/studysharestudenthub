@@ -437,6 +437,73 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "list_requests") {
+      const { data: reqs, error: reqsError } = await supabaseAdmin
+        .from("material_requests")
+        .select("*, profiles!material_requests_requester_user_id_fkey(name)")
+        .order("created_at", { ascending: false });
+
+      console.log("list_requests result:", reqs?.length, "error:", reqsError);
+
+      return new Response(JSON.stringify({ requests: reqs || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete_request") {
+      // Refund credits if request is open
+      const { data: request } = await supabaseAdmin
+        .from("material_requests")
+        .select("*")
+        .eq("id", targetId)
+        .single();
+
+      if (!request) {
+        return new Response(JSON.stringify({ error: "Request not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (request.status === "open") {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ credit_balance: supabaseAdmin.rpc ? undefined : undefined })
+          .eq("id", request.requester_user_id);
+        // Use raw SQL-like approach: fetch balance, add, update
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("credit_balance")
+          .eq("id", request.requester_user_id)
+          .single();
+        if (profile) {
+          await supabaseAdmin
+            .from("profiles")
+            .update({ credit_balance: profile.credit_balance + request.reward_credits })
+            .eq("id", request.requester_user_id);
+          await supabaseAdmin.from("credit_transactions").insert({
+            user_id: request.requester_user_id,
+            amount: request.reward_credits,
+            type: "request_refund",
+            description: "Admin deleted request — credits refunded",
+          });
+        }
+      }
+
+      await supabaseAdmin.from("material_requests").delete().eq("id", targetId);
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: "delete_request",
+        target_id: targetId,
+        details: { title: request.title, requester: request.requester_user_id },
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

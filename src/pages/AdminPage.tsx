@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins } from "lucide-react";
+import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +49,17 @@ interface AdminMaterial {
   profiles?: { name: string } | null;
 }
 
+interface AdminRequest {
+  id: string;
+  title: string;
+  description: string;
+  reward_credits: number;
+  status: string;
+  requester_user_id: string;
+  created_at: string;
+  profiles?: { name: string } | null;
+}
+
 interface AuditEntry {
   id: string;
   admin_id: string;
@@ -65,6 +76,7 @@ const AdminPage = () => {
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [materials, setMaterials] = useState<AdminMaterial[]>([]);
+  const [requests, setRequests] = useState<AdminRequest[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -91,14 +103,16 @@ const AdminPage = () => {
   const fetchAll = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, matsRes, logsRes, reportsRes] = await Promise.all([
+      const [usersRes, matsRes, reqsRes, logsRes, reportsRes] = await Promise.all([
         callAdmin({ action: "list_users" }),
         callAdmin({ action: "list_materials" }),
+        callAdmin({ action: "list_requests" }),
         callAdmin({ action: "list_audit_log" }),
         callAdmin({ action: "list_reports" }),
       ]);
       setUsers(usersRes.users || []);
       setMaterials(matsRes.materials || []);
+      setRequests(reqsRes.requests || []);
       setAuditLog(logsRes.logs || []);
       setReports(reportsRes.reports || []);
     } catch (e: any) {
@@ -121,6 +135,16 @@ const AdminPage = () => {
     try {
       await callAdmin({ action: "delete_material", targetId: id });
       toast({ title: "Material deleted" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    try {
+      await callAdmin({ action: "delete_request", targetId: id });
+      toast({ title: "Request deleted and credits refunded" });
       fetchAll();
     } catch (e: any) {
       toast({ title: "Delete failed", description: sanitizeError(e), variant: "destructive" });
@@ -331,6 +355,59 @@ const AdminPage = () => {
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleDeleteMaterial(m.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          {/* Requests Section */}
+          <h3 className="text-lg font-semibold text-foreground mt-8 mb-3 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-primary" /> Material Requests
+          </h3>
+          {loadingData ? <p className="text-muted-foreground text-sm">Loading...</p> : requests.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4 text-center">No requests.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Reward</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Requester</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-16"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {requests.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium text-foreground">{r.title}</TableCell>
+                    <TableCell className="text-foreground">{r.reward_credits} credits</TableCell>
+                    <TableCell>
+                      <span className={`text-xs font-medium ${r.status === 'open' ? 'text-primary' : r.status === 'fulfilled' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {r.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{(r.profiles as any)?.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete request "{r.title}"?</AlertDialogTitle>
+                            <AlertDialogDescription>This will delete the request{r.status === 'open' ? ' and refund the reserved credits to the requester' : ''}.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteRequest(r.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
