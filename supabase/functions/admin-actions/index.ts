@@ -27,12 +27,10 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
-    const supabaseAuth = createClient(supabaseUrl, anonKey);
     const {
       data: { user },
       error: authError,
-    } = await supabaseAuth.auth.getUser(token);
+    } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
       console.error("Admin action: Auth failed", authError?.message);
