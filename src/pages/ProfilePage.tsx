@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen } from "lucide-react";
+import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
