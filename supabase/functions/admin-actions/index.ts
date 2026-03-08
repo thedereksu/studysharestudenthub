@@ -354,7 +354,7 @@ Deno.serve(async (req) => {
       });
 
       await supabaseAdmin.from("admin_actions").insert({
-        admin_id: user.id,
+        admin_id: userId,
         action_type: "adjust_credits",
         target_id: targetUserId,
         details: { amount: delta, reason, new_balance: newBalance },
