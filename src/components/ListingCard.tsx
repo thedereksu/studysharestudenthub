@@ -32,7 +32,7 @@ const ListingCard = ({ material }: { material: Material }) => {
   return (
     <button
       onClick={() => navigate(`/listing/${material.id}`)}
-      className="bg-card rounded-lg border border-border overflow-hidden text-left w-full animate-fade-in hover:shadow-md transition-shadow"
+      className={`bg-card rounded-lg border overflow-hidden text-left w-full animate-fade-in hover:shadow-md transition-shadow ${isPromoted ? "border-primary ring-1 ring-primary/30" : "border-border"}`}
     >
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center overflow-hidden">
         {showImage ? (
