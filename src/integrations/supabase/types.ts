@@ -152,6 +152,41 @@ export type Database = {
           },
         ]
       }
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           created_at: string
@@ -162,6 +197,9 @@ export type Database = {
           file_url: string
           files: Json | null
           id: string
+          is_promoted: boolean
+          ownership_confirmed: boolean
+          promotion_expires_at: string | null
           subject: string
           title: string
           type: string
@@ -177,6 +215,9 @@ export type Database = {
           file_url: string
           files?: Json | null
           id?: string
+          is_promoted?: boolean
+          ownership_confirmed?: boolean
+          promotion_expires_at?: string | null
           subject: string
           title: string
           type: string
@@ -192,6 +233,9 @@ export type Database = {
           file_url?: string
           files?: Json | null
           id?: string
+          is_promoted?: boolean
+          ownership_confirmed?: boolean
+          promotion_expires_at?: string | null
           subject?: string
           title?: string
           type?: string
