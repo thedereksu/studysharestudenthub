@@ -291,6 +291,77 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "adjust_credits") {
+      const { targetUserId, amount, adjustmentType, reason } = body;
+      if (!targetUserId || !amount || !adjustmentType) {
+        return new Response(JSON.stringify({ error: "Missing fields" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const numAmount = Math.abs(parseInt(amount));
+      if (isNaN(numAmount) || numAmount <= 0) {
+        return new Response(JSON.stringify({ error: "Invalid amount" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const delta = adjustmentType === "add" ? numAmount : -numAmount;
+
+      const { data: currentProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("credit_balance")
+        .eq("id", targetUserId)
+        .single();
+
+      if (!currentProfile) {
+        return new Response(JSON.stringify({ error: "User not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const newBalance = currentProfile.credit_balance + delta;
+      if (newBalance < 0) {
+        return new Response(JSON.stringify({ error: "Insufficient balance" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error: updErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ credit_balance: newBalance })
+        .eq("id", targetUserId);
+
+      if (updErr) {
+        return new Response(JSON.stringify({ error: updErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await supabaseAdmin.from("credit_transactions").insert({
+        user_id: targetUserId,
+        amount: delta,
+        type: "admin_adjustment",
+        description: reason || `Admin ${adjustmentType === "add" ? "added" : "subtracted"} ${numAmount} credits`,
+      });
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: user.id,
+        action_type: "adjust_credits",
+        target_id: targetUserId,
+        details: { amount: delta, reason, new_balance: newBalance },
+      });
+
+      return new Response(JSON.stringify({ success: true, new_balance: newBalance }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "block_email") {
       const { email: blockEmail, reason: blockReason } = body;
       if (!blockEmail) {

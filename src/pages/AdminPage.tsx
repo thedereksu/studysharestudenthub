@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle } from "lucide-react";
+import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +14,12 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -60,6 +68,14 @@ const AdminPage = () => {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Credit adjustment state
+  const [creditDialogOpen, setCreditDialogOpen] = useState(false);
+  const [creditUser, setCreditUser] = useState<AdminUser | null>(null);
+  const [adjustType, setAdjustType] = useState<"add" | "subtract">("add");
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
 
   const callAdmin = async (body: Record<string, string>) => {
     const { data, error } = await supabase.functions.invoke("admin-actions", {
@@ -141,6 +157,34 @@ const AdminPage = () => {
     }
   };
 
+  const openCreditDialog = (u: AdminUser) => {
+    setCreditUser(u);
+    setAdjustType("add");
+    setAdjustAmount("");
+    setAdjustReason("");
+    setCreditDialogOpen(true);
+  };
+
+  const handleAdjustCredits = async () => {
+    if (!creditUser || !adjustAmount) return;
+    setAdjusting(true);
+    try {
+      const res = await callAdmin({
+        action: "adjust_credits",
+        targetUserId: creditUser.id,
+        amount: adjustAmount,
+        adjustmentType: adjustType,
+        reason: adjustReason,
+      });
+      toast({ title: `Credits ${adjustType === "add" ? "added" : "subtracted"} successfully`, description: `New balance: ${res.new_balance}` });
+      setCreditDialogOpen(false);
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Adjustment failed", description: sanitizeError(e), variant: "destructive" });
+    }
+    setAdjusting(false);
+  };
+
   if (authLoading || roleLoading) return <div className="max-w-4xl mx-auto px-4 pt-12 text-center text-muted-foreground">Loading...</div>;
   if (!isAdmin) return null;
 
@@ -166,10 +210,10 @@ const AdminPage = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Credits</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>School</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead className="w-28">Actions</TableHead>
+                  <TableHead className="w-36">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -177,6 +221,7 @@ const AdminPage = () => {
                   <TableRow key={u.id}>
                     <TableCell className="font-medium text-foreground">{u.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{u.email || "—"}</TableCell>
+                    <TableCell className="text-foreground font-medium">{u.credit_balance}</TableCell>
                     <TableCell>
                       {u.is_blocked ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive"><Ban className="w-3 h-3" /> Blocked</span>
@@ -184,11 +229,13 @@ const AdminPage = () => {
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle className="w-3 h-3" /> Active</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{u.school || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       {u.id !== user?.id && (
                         <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" title="Adjust Credits" onClick={() => openCreditDialog(u)}>
+                            <Coins className="w-4 h-4 text-primary" />
+                          </Button>
                           {u.email && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -324,6 +371,46 @@ const AdminPage = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Credit Adjustment Dialog */}
+      <Dialog open={creditDialogOpen} onOpenChange={setCreditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust Credits — {creditUser?.name || "User"}</DialogTitle>
+            <DialogDescription>Add or subtract credits from this user's balance.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Current Balance</span>
+              <span className="font-semibold text-foreground">{creditUser?.credit_balance ?? 0} credits</span>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Adjustment Type</label>
+              <Select value={adjustType} onValueChange={(v) => setAdjustType(v as "add" | "subtract")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="add">Add Credits</SelectItem>
+                  <SelectItem value="subtract">Subtract Credits</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Amount</label>
+              <Input type="number" min="1" placeholder="Enter amount" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Reason (optional)</label>
+              <Textarea placeholder="e.g. Promotional bonus, error correction..." value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAdjustCredits} disabled={adjusting || !adjustAmount || parseInt(adjustAmount) <= 0}>
+              {adjusting ? "Adjusting..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
