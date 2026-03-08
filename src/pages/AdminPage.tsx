@@ -35,6 +35,9 @@ interface AdminMaterial {
   exchange_type: string;
   uploader_id: string;
   created_at: string;
+  ownership_confirmed?: boolean;
+  is_promoted?: boolean;
+  promotion_expires_at?: string | null;
   profiles?: { name: string } | null;
 }
 
@@ -243,14 +246,15 @@ const AdminPage = () => {
           {loadingData ? <p className="text-muted-foreground text-sm">Loading...</p> : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Exchange</TableHead>
-                  <TableHead>Uploader</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="w-16"></TableHead>
-                </TableRow>
+                 <TableRow>
+                   <TableHead>Title</TableHead>
+                   <TableHead>Subject</TableHead>
+                   <TableHead>Exchange</TableHead>
+                   <TableHead>Ownership</TableHead>
+                   <TableHead>Uploader</TableHead>
+                   <TableHead>Date</TableHead>
+                   <TableHead className="w-16"></TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {materials.map((m) => (
@@ -258,6 +262,13 @@ const AdminPage = () => {
                     <TableCell className="font-medium text-foreground">{m.title}</TableCell>
                     <TableCell className="text-muted-foreground">{m.subject}</TableCell>
                     <TableCell className="text-muted-foreground">{m.exchange_type}</TableCell>
+                    <TableCell>
+                      {m.ownership_confirmed ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle className="w-3 h-3" /> Confirmed</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{(m.profiles as any)?.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(m.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>

@@ -17,6 +17,18 @@ const HomePage = () => {
         .from("materials")
         .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
         .order("created_at", { ascending: false });
+      // Sort: active promotions first, then by created_at
+      if (data) {
+        const now = new Date().toISOString();
+        data.sort((a: any, b: any) => {
+          const aPromoted = a.is_promoted && a.promotion_expires_at && a.promotion_expires_at > now;
+          const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
+          if (aPromoted && !bPromoted) return -1;
+          if (!aPromoted && bPromoted) return 1;
+          if (aPromoted && bPromoted) return new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime();
+          return 0; // keep existing created_at order
+        });
+      }
       if (error) {
         console.error("Feed query error:", error);
       }

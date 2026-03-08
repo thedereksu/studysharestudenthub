@@ -35,6 +35,7 @@ const CreateListing = () => {
   const [exchange, setExchange] = useState("Free");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [ownershipConfirmed, setOwnershipConfirmed] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -103,6 +104,7 @@ const CreateListing = () => {
         file_url: primaryFile.file_url,
         file_type: primaryFile.file_type,
         files: uploadedFiles,
+        ownership_confirmed: true,
       });
 
       if (insertError) throw insertError;
@@ -221,7 +223,19 @@ const CreateListing = () => {
         />
       </div>
 
-      <Button className="w-full mb-8" onClick={handleSubmit} disabled={files.length === 0 || uploading}>
+      <label className="flex items-start gap-3 mb-5 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={ownershipConfirmed}
+          onChange={(e) => setOwnershipConfirmed(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+        />
+        <span className="text-xs text-muted-foreground leading-relaxed">
+          I confirm that I created this material or have permission to share it. I understand that uploading copyrighted or unauthorized content may result in removal of the content or suspension of my account.
+        </span>
+      </label>
+
+      <Button className="w-full mb-8" onClick={handleSubmit} disabled={files.length === 0 || uploading || !ownershipConfirmed}>
         {uploading ? "Uploading..." : "Post Material"}
       </Button>
     </div>

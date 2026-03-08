@@ -13,6 +13,7 @@ const exchangeBadgeClass: Record<string, string> = {
 const ListingCard = ({ material }: { material: Material }) => {
   const navigate = useNavigate();
   const isFree = material.exchange_type === "Free";
+  const isPromoted = (material as any).is_promoted && (material as any).promotion_expires_at && new Date((material as any).promotion_expires_at) > new Date();
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [imgFailed, setImgFailed] = useState(false);
@@ -31,7 +32,7 @@ const ListingCard = ({ material }: { material: Material }) => {
   return (
     <button
       onClick={() => navigate(`/listing/${material.id}`)}
-      className="bg-card rounded-lg border border-border overflow-hidden text-left w-full animate-fade-in hover:shadow-md transition-shadow"
+      className={`bg-card rounded-lg border overflow-hidden text-left w-full animate-fade-in hover:shadow-md transition-shadow ${isPromoted ? "border-primary ring-1 ring-primary/30" : "border-border"}`}
     >
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center overflow-hidden">
         {showImage ? (
@@ -43,6 +44,11 @@ const ListingCard = ({ material }: { material: Material }) => {
           />
         ) : (
           <FileText className="w-8 h-8 text-muted-foreground" />
+        )}
+        {isPromoted && (
+          <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+            ⭐ Promoted
+          </span>
         )}
         <span
           className={`absolute top-2 right-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
