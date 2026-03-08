@@ -310,30 +310,6 @@ Deno.serve(async (req) => {
 
       const delta = adjustmentType === "add" ? numAmount : -numAmount;
 
-      // Check current balance for subtract
-      if (delta < 0) {
-        const { data: profile } = await supabaseAdmin
-          .from("profiles")
-          .select("credit_balance")
-          .eq("id", targetUserId)
-          .single();
-        if (!profile || profile.credit_balance + delta < 0) {
-          return new Response(JSON.stringify({ error: "Insufficient balance" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
-
-      // Update balance
-      const { error: updateError } = await supabaseAdmin.rpc("", {});
-      // Use raw update instead
-      const { error: balanceError } = await supabaseAdmin
-        .from("profiles")
-        .update({ credit_balance: supabaseAdmin.rpc ? undefined : undefined })
-        .eq("id", targetUserId);
-
-      // Actually we need to do an increment. Let's just fetch and update.
       const { data: currentProfile } = await supabaseAdmin
         .from("profiles")
         .select("credit_balance")
@@ -348,6 +324,13 @@ Deno.serve(async (req) => {
       }
 
       const newBalance = currentProfile.credit_balance + delta;
+      if (newBalance < 0) {
+        return new Response(JSON.stringify({ error: "Insufficient balance" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { error: updErr } = await supabaseAdmin
         .from("profiles")
         .update({ credit_balance: newBalance })
@@ -360,7 +343,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Record transaction
       await supabaseAdmin.from("credit_transactions").insert({
         user_id: targetUserId,
         amount: delta,
@@ -368,7 +350,6 @@ Deno.serve(async (req) => {
         description: reason || `Admin ${adjustmentType === "add" ? "added" : "subtracted"} ${numAmount} credits`,
       });
 
-      // Audit log
       await supabaseAdmin.from("admin_actions").insert({
         admin_id: user.id,
         action_type: "adjust_credits",
