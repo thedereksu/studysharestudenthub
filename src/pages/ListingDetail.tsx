@@ -111,7 +111,7 @@ const ListingDetail = () => {
     const fetchData = async () => {
       const { data } = await supabase
         .from("materials")
-        .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
+        .select("*, profiles!materials_uploader_id_profiles_fkey(id, name, school, bio, has_featured_badge, created_at, updated_at)")
         .eq("id", id)
         .single();
       setMaterial(data as unknown as Material | null);

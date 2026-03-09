@@ -33,7 +33,7 @@ const ProfilePage = () => {
     if (!user) return;
     const [{ data: profileData }, { data: materialsData }, { data: reqData }, { data: badgeApp }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
-      supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(id, name, school, bio, has_featured_badge, created_at, updated_at)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
       supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("badge_applications").select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
     ]);
