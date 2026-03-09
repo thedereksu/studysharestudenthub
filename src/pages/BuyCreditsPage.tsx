@@ -29,13 +29,24 @@ const BuyCreditsPage = () => {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { packageKey },
       });
-      if (error) throw error;
+      if (error) {
+        // Try to extract the actual error message from the response
+        let errorMsg = error.message;
+        if (error.context && typeof error.context.json === 'function') {
+          try {
+            const body = await error.context.json();
+            if (body?.error) errorMsg = body.error;
+          } catch {}
+        }
+        throw new Error(errorMsg);
+      }
       if (data?.url) {
         window.location.href = data.url;
       } else {
         throw new Error("No checkout URL returned");
       }
     } catch (e: any) {
+      console.error("Checkout error:", e);
       toast({ title: "Purchase failed", description: sanitizeError(e), variant: "destructive" });
     } finally {
       setLoading(null);
