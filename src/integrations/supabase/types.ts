@@ -633,6 +633,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_stripe_credits: {
+        Args: { p_credits: number; p_user_id: string }
+        Returns: undefined
+      }
       apply_for_featured_badge: { Args: { p_reason: string }; Returns: Json }
       cancel_material_request: { Args: { p_request_id: string }; Returns: Json }
       create_material_request: {
