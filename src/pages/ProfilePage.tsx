@@ -35,7 +35,7 @@ const ProfilePage = () => {
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
       supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("badge_applications" as any).select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
+      supabase.from("badge_applications").select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
     ]);
     setHasPendingApplication(!!badgeApp);
     const p = profileData as Profile | null;
@@ -184,7 +184,14 @@ const ProfilePage = () => {
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-1">
                     <Award className="w-4 h-4 text-primary" /> Apply for Featured Contributor Badge
                   </h3>
-                  <p className="text-xs text-muted-foreground">Tell us why you deserve the Featured Contributor badge. Application fee: 15 credits.</p>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">
+                      The <span className="font-semibold text-foreground">Featured Contributor</span> badge gives your listings priority placement in search results and the home feed, making them more visible to other users.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Application fee: <span className="font-semibold text-foreground">15 credits</span>. If your application is denied, your credits will be fully refunded.
+                    </p>
+                  </div>
                   <textarea
                     value={badgeReason}
                     onChange={(e) => setBadgeReason(e.target.value)}
@@ -200,11 +207,11 @@ const ProfilePage = () => {
                         if (!user) return;
                         setApplyingBadge(true);
                         try {
-                          const { data, error } = await supabase.rpc("apply_for_featured_badge" as any, { p_reason: badgeReason });
+                          const { data, error } = await supabase.rpc("apply_for_featured_badge", { p_reason: badgeReason });
                           if (error) throw error;
-                          const result = data as unknown as { success: boolean; error?: string };
-                          if (!result.success) {
-                            toast({ title: result.error || "Application failed", variant: "destructive" });
+                          const result = typeof data === "string" ? JSON.parse(data) : data;
+                          if (!result?.success) {
+                            toast({ title: result?.error || "Application failed", variant: "destructive" });
                           } else {
                             toast({ title: "Application submitted! An admin will review it." });
                             setShowBadgeForm(false);
@@ -212,6 +219,7 @@ const ProfilePage = () => {
                             fetchData();
                           }
                         } catch (e: any) {
+                          console.error("Badge application error:", e);
                           toast({ title: "Application failed", description: sanitizeError(e), variant: "destructive" });
                         } finally {
                           setApplyingBadge(false);
