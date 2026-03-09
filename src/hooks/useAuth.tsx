@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const initializedRef = useRef(false);
+  const initialSessionFromEventRef = useRef<Session | null>(null);
 
   const checkBlocked = async (email: string | undefined): Promise<boolean> => {
     if (!email) return false;
@@ -69,17 +70,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       scheduleBlockedCheck(next);
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, newSession) => {
-        // Supabase can emit INITIAL_SESSION before storage restore finishes; ignore it.
-        if (event === "INITIAL_SESSION" && !initializedRef.current) return;
-        applySession(newSession);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, newSession) => {
+      // Store initial session event so we can reconcile with getSession()
+      if (event === "INITIAL_SESSION") {
+        initialSessionFromEventRef.current = newSession;
+        if (initializedRef.current) applySession(newSession);
+        return;
       }
-    );
+
+      applySession(newSession);
+    });
 
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       initializedRef.current = true;
-      applySession(existingSession);
+      const next = existingSession ?? initialSessionFromEventRef.current ?? null;
+      applySession(next);
     });
 
     return () => {
