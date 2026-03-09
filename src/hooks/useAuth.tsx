@@ -58,6 +58,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     })();
   };
 
+  const resetCorruptAuthStorage = () => {
+    // If the auth blob in storage is corrupted (common in PWAs after OS restore / storage bugs),
+    // supabase.auth.getSession() can reject, leaving the UI stuck in a perpetual loading state.
+    // Clearing only Supabase auth-token keys is enough to recover without users manually clearing cookies.
+    try {
+      const keys = Object.keys(localStorage);
+      for (const key of keys) {
+        if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -73,7 +89,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, newSession) => {
-      // Store initial session event so we can reconcile with getSession()
+      // Store initial session event so we can reconcile with getSession().
+      // IMPORTANT: never await inside this callback.
       if (event === "INITIAL_SESSION") {
         initialSessionFromEventRef.current = newSession;
         if (initializedRef.current) applySession(newSession);
@@ -83,11 +100,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       applySession(newSession);
     });
 
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      initializedRef.current = true;
-      const next = existingSession ?? initialSessionFromEventRef.current ?? null;
-      applySession(next);
-    });
+    void (async () => {
+      try {
+        const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        initializedRef.current = true;
+        const next = existingSession ?? initialSessionFromEventRef.current ?? null;
+        applySession(next);
+      } catch {
+        // Recover from corrupted storage by clearing Supabase auth tokens and continuing as signed-out.
+        initializedRef.current = true;
+        resetCorruptAuthStorage();
+        try {
+          await supabase.auth.signOut({ scope: "local" });
+        } catch {
+          // ignore
+        }
+        applySession(null);
+      }
+    })();
 
     return () => {
       mounted = false;
