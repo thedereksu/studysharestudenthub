@@ -16,6 +16,9 @@ import MessagesPage from "@/pages/MessagesPage";
 import ChatPage from "@/pages/ChatPage";
 import AuthPage from "@/pages/AuthPage";
 import AdminPage from "@/pages/AdminPage";
+import BuyCreditsPage from "@/pages/BuyCreditsPage";
+import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
+import PaymentCancelledPage from "@/pages/PaymentCancelledPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +42,9 @@ const App = () => (
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/messages" element={<MessagesPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/buy-credits" element={<BuyCreditsPage />} />
+              <Route path="/payment-success" element={<PaymentSuccessPage />} />
+              <Route path="/payment-cancelled" element={<PaymentCancelledPage />} />
             </Route>
             <Route path="/chat/:userId" element={<ChatPage />} />
             <Route path="*" element={<NotFound />} />
