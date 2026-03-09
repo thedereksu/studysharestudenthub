@@ -169,6 +169,7 @@ const ProfilePage = () => {
               <div className="bg-secondary rounded-lg p-3 text-center">
                 <span className="text-lg font-semibold text-foreground">{profile?.credit_balance ?? 0}</span>
                 <p className="text-[10px] text-muted-foreground">Credits</p>
+                <button onClick={() => navigate("/buy-credits")} className="text-[10px] text-primary font-semibold hover:underline mt-1">+ Buy More</button>
               </div>
             </div>
             {!profile?.has_featured_badge && (
