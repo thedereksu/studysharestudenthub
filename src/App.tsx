@@ -19,6 +19,7 @@ import AdminPage from "@/pages/AdminPage";
 import BuyCreditsPage from "@/pages/BuyCreditsPage";
 import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
 import PaymentCancelledPage from "@/pages/PaymentCancelledPage";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,19 +33,22 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/listing/:id" element={<ListingDetail />} />
-              <Route path="/create" element={<CreateListing />} />
-              <Route path="/request" element={<CreateRequestPage />} />
-              <Route path="/edit/:id" element={<EditMaterialPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/messages" element={<MessagesPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-              <Route path="/buy-credits" element={<BuyCreditsPage />} />
-              <Route path="/payment-success" element={<PaymentSuccessPage />} />
-              <Route path="/payment-cancelled" element={<PaymentCancelledPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/listing/:id" element={<ListingDetail />} />
+                <Route path="/create" element={<CreateListing />} />
+                <Route path="/request" element={<CreateRequestPage />} />
+                <Route path="/edit/:id" element={<EditMaterialPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/buy-credits" element={<BuyCreditsPage />} />
+                <Route path="/payment-success" element={<PaymentSuccessPage />} />
+                <Route path="/payment-cancelled" element={<PaymentCancelledPage />} />
+              </Route>
+              <Route path="/chat/:userId" element={<ChatPage />} />
             </Route>
             <Route path="/chat/:userId" element={<ChatPage />} />
             <Route path="*" element={<NotFound />} />
