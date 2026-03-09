@@ -184,7 +184,9 @@ const ProfilePage = () => {
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-1">
                     <Award className="w-4 h-4 text-primary" /> Apply for Featured Contributor Badge
                   </h3>
-                  <p className="text-xs text-muted-foreground">Tell us why you deserve the Featured Contributor badge. Application fee: 15 credits.</p>
+                  <p className="text-xs text-muted-foreground">
+                    The Featured Contributor badge gives your listings priority in search results and increased visibility. Application fee: 15 credits. If your application is denied, your credits will be fully refunded.
+                  </p>
                   <textarea
                     value={badgeReason}
                     onChange={(e) => setBadgeReason(e.target.value)}
