@@ -17,7 +17,7 @@ const SearchPage = () => {
     const fetchMaterials = async () => {
       const { data, error } = await supabase
         .from("materials")
-        .select("*, profiles!materials_uploader_id_profiles_fkey(id, name, school, bio, has_featured_badge, created_at, updated_at)")
+        .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
         .order("created_at", { ascending: false });
       if (error) {
         console.error("Search query error:", error);

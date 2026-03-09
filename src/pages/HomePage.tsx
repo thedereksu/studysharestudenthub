@@ -23,11 +23,11 @@ const HomePage = () => {
       const [{ data: matData, error: matErr }, { data: reqData }] = await Promise.all([
         supabase
           .from("materials")
-          .select("*, profiles!materials_uploader_id_profiles_fkey(id, name, school, bio, has_featured_badge, created_at, updated_at)")
+          .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
           .order("created_at", { ascending: false }),
         supabase
           .from("material_requests")
-          .select("*, profiles!material_requests_requester_user_id_fkey(id, name, school, bio, has_featured_badge, created_at, updated_at)")
+          .select("*, profiles!material_requests_requester_user_id_fkey(*)")
           .eq("status", "open")
           .order("created_at", { ascending: false }),
       ]);
