@@ -1,10 +1,8 @@
-import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, PlusCircle, MessageCircle, User, Search, Shield, HelpCircle } from "lucide-react";
+import { Home, PlusCircle, MessageCircle, User, Search, Shield } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useAdmin } from "@/hooks/useAdmin";
 import NotificationDropdown from "@/components/NotificationDropdown";
-import { useAuth } from "@/hooks/useAuth";
 import logoImg from "@/assets/logo.png";
 
 const AppLayout = () => {
@@ -12,25 +10,6 @@ const AppLayout = () => {
   const navigate = useNavigate();
   const totalUnread = useUnreadCount();
   const { isAdmin } = useAdmin();
-  const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth", { replace: true });
-    }
-  }, [loading, user, navigate]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
@@ -52,7 +31,7 @@ const AppLayout = () => {
               <img src={logoImg} alt="StudySwap" className="w-9 h-9" />
               <span className="font-serif text-lg font-semibold text-foreground">StudySwap</span>
             </button>
-            {user && <NotificationDropdown />}
+            <NotificationDropdown />
           </div>
         </header>
       )}
