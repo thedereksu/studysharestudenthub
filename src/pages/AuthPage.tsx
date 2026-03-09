@@ -24,28 +24,14 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
-  const { user, loading: authLoading, blockedMessage } = useAuth();
+  const { blockedMessage } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!authLoading && user) {
-      navigate("/", { replace: true });
-    }
-  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     if (blockedMessage) {
       toast({ title: blockedMessage, variant: "destructive" });
     }
   }, [blockedMessage]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
 
   const checkBlocked = async (checkEmail: string): Promise<boolean> => {
     const { data, error } = await supabase.rpc("is_email_blocked", { check_email: checkEmail });
