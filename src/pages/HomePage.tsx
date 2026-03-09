@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, SlidersHorizontal, Upload, HelpCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Search, SlidersHorizontal, Upload, HelpCircle, RefreshCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ListingCard from "@/components/ListingCard";
 import RequestCard from "@/components/RequestCard";
@@ -15,45 +15,55 @@ const HomePage = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [requests, setRequests] = useState<MaterialRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [{ data: matData, error: matErr }, { data: reqData }] = await Promise.all([
-        supabase
-          .from("materials")
-          .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("material_requests")
-          .select("*, profiles!material_requests_requester_user_id_fkey(*)")
-          .eq("status", "open")
-          .order("created_at", { ascending: false }),
-      ]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
 
-      if (matData) {
-        const now = new Date().toISOString();
-        matData.sort((a: any, b: any) => {
-          const aPromoted = a.is_promoted && a.promotion_expires_at && a.promotion_expires_at > now;
-          const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
-          if (aPromoted && !bPromoted) return -1;
-          if (!aPromoted && bPromoted) return 1;
-          if (aPromoted && bPromoted) return new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime();
-          const aFeatured = a.profiles?.has_featured_badge;
-          const bFeatured = b.profiles?.has_featured_badge;
-          if (aFeatured && !bFeatured) return -1;
-          if (!aFeatured && bFeatured) return 1;
-          return 0;
-        });
-      }
-      if (matErr) console.error("Feed query error:", matErr);
-      setMaterials((matData as unknown as Material[]) || []);
-      setRequests((reqData as unknown as MaterialRequest[]) || []);
-      setLoading(false);
-    };
-    fetchData();
+    const [{ data: matData, error: matErr }, { data: reqData, error: reqErr }] = await Promise.all([
+      supabase
+        .from("materials")
+        .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("material_requests")
+        .select("*, profiles!material_requests_requester_user_id_fkey(*)")
+        .eq("status", "open")
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (matData) {
+      const now = new Date().toISOString();
+      matData.sort((a: any, b: any) => {
+        const aPromoted = a.is_promoted && a.promotion_expires_at && a.promotion_expires_at > now;
+        const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
+        if (aPromoted && !bPromoted) return -1;
+        if (!aPromoted && bPromoted) return 1;
+        if (aPromoted && bPromoted) return new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime();
+        const aFeatured = a.profiles?.has_featured_badge;
+        const bFeatured = b.profiles?.has_featured_badge;
+        if (aFeatured && !bFeatured) return -1;
+        if (!aFeatured && bFeatured) return 1;
+        return 0;
+      });
+    }
+
+    if (matErr || reqErr) {
+      console.error("Feed query error:", { matErr, reqErr });
+      setLoadError("We couldn't sync data from the server. Please retry.");
+    }
+
+    setMaterials((matData as unknown as Material[]) || []);
+    setRequests((reqData as unknown as MaterialRequest[]) || []);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const filtered = materials.filter((l) => {
     const matchesSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -107,6 +117,15 @@ const HomePage = () => {
         ))}
       </div>
 
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-border bg-card p-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">{loadError}</p>
+          <Button size="sm" variant="outline" onClick={fetchData}>
+            <RefreshCcw className="w-3.5 h-3.5 mr-1" /> Retry
+          </Button>
+        </div>
+      )}
+
       {/* Active requests - highest priority, above everything */}
       {filteredRequests.length > 0 && (
         <div className="space-y-3 mb-4">
@@ -135,3 +154,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+
