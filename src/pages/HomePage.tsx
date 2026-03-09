@@ -20,9 +20,11 @@ const HomePage = () => {
   const { user } = useAuth();
 
   const fetchData = useCallback(async () => {
+    console.log("[HomePage] fetchData called");
     setLoading(true);
     setLoadError(null);
 
+    try {
     const [{ data: matData, error: matErr }, { data: reqData, error: reqErr }] = await Promise.all([
       supabase
         .from("materials")
