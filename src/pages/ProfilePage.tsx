@@ -264,7 +264,7 @@ const ProfilePage = () => {
                     onClick={async () => {
                       if (!confirm("Cancel this request? Your credits will be refunded.")) return;
                       try {
-                        const { data, error } = await supabase.rpc("cancel_material_request" as any, { p_request_id: req.id });
+                        const { data, error } = await supabase.rpc("cancel_material_request", { p_request_id: req.id });
                         if (error) throw error;
                         const result = data as unknown as { success: boolean; error?: string };
                         if (!result.success) {
