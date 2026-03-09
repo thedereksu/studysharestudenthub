@@ -33,6 +33,12 @@ const AuthPage = () => {
     }
   }, [authLoading, user, navigate]);
 
+  useEffect(() => {
+    if (blockedMessage) {
+      toast({ title: blockedMessage, variant: "destructive" });
+    }
+  }, [blockedMessage]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -40,12 +46,6 @@ const AuthPage = () => {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (blockedMessage) {
-      toast({ title: blockedMessage, variant: "destructive" });
-    }
-  }, [blockedMessage]);
 
   const checkBlocked = async (checkEmail: string): Promise<boolean> => {
     const { data, error } = await supabase.rpc("is_email_blocked", { check_email: checkEmail });
