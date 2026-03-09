@@ -35,7 +35,7 @@ const ProfilePage = () => {
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
       supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("badge_applications" as any).select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
+      supabase.from("badge_applications").select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
     ]);
     setHasPendingApplication(!!badgeApp);
     const p = profileData as Profile | null;
