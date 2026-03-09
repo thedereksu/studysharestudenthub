@@ -27,7 +27,7 @@ const HomePage = () => {
           .order("created_at", { ascending: false }),
         supabase
           .from("material_requests")
-          .select("*, profiles!material_requests_requester_user_id_fkey(*)")
+          .select("*, profiles!material_requests_requester_user_id_fkey(id, name, school, bio, has_featured_badge, created_at, updated_at)")
           .eq("status", "open")
           .order("created_at", { ascending: false }),
       ]);
