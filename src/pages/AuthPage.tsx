@@ -24,8 +24,14 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
-  const { blockedMessage } = useAuth();
+  const { user, loading: authLoading, blockedMessage } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (blockedMessage) {
