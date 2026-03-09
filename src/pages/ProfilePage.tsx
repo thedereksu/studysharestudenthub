@@ -35,7 +35,7 @@ const ProfilePage = () => {
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("materials").select("*, profiles!materials_uploader_id_profiles_fkey(*)").eq("uploader_id", user.id).order("created_at", { ascending: false }),
       supabase.from("material_requests").select("*").eq("requester_user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("badge_applications" as any).select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
+      supabase.from("badge_applications").select("id, status").eq("user_id", user.id).eq("status", "pending").maybeSingle(),
     ]);
     setHasPendingApplication(!!badgeApp);
     const p = profileData as Profile | null;
@@ -200,7 +200,7 @@ const ProfilePage = () => {
                         if (!user) return;
                         setApplyingBadge(true);
                         try {
-                          const { data, error } = await supabase.rpc("apply_for_featured_badge" as any, { p_reason: badgeReason });
+                          const { data, error } = await supabase.rpc("apply_for_featured_badge", { p_reason: badgeReason });
                           if (error) throw error;
                           const result = data as unknown as { success: boolean; error?: string };
                           if (!result.success) {
@@ -264,7 +264,7 @@ const ProfilePage = () => {
                     onClick={async () => {
                       if (!confirm("Cancel this request? Your credits will be refunded.")) return;
                       try {
-                        const { data, error } = await supabase.rpc("cancel_material_request" as any, { p_request_id: req.id });
+                        const { data, error } = await supabase.rpc("cancel_material_request", { p_request_id: req.id });
                         if (error) throw error;
                         const result = data as unknown as { success: boolean; error?: string };
                         if (!result.success) {
