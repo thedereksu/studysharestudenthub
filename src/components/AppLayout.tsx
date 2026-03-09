@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, PlusCircle, MessageCircle, User, Search, Shield, HelpCircle } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
@@ -11,7 +12,17 @@ const AppLayout = () => {
   const navigate = useNavigate();
   const totalUnread = useUnreadCount();
   const { isAdmin } = useAdmin();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth", { replace: true });
+    }
+  }, [loading, user, navigate]);
+
+  if (loading || !user) {
+    return null;
+  }
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
