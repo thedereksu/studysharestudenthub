@@ -25,41 +25,47 @@ const HomePage = () => {
     setLoadError(null);
 
     try {
-    const [{ data: matData, error: matErr }, { data: reqData, error: reqErr }] = await Promise.all([
-      supabase
-        .from("materials")
-        .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("material_requests")
-        .select("*, profiles!material_requests_requester_user_id_fkey(*)")
-        .eq("status", "open")
-        .order("created_at", { ascending: false }),
-    ]);
+      const [{ data: matData, error: matErr }, { data: reqData, error: reqErr }] = await Promise.all([
+        supabase
+          .from("materials")
+          .select("*, profiles!materials_uploader_id_profiles_fkey(*)")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("material_requests")
+          .select("*, profiles!material_requests_requester_user_id_fkey(*)")
+          .eq("status", "open")
+          .order("created_at", { ascending: false }),
+      ]);
 
-    if (matData) {
-      const now = new Date().toISOString();
-      matData.sort((a: any, b: any) => {
-        const aPromoted = a.is_promoted && a.promotion_expires_at && a.promotion_expires_at > now;
-        const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
-        if (aPromoted && !bPromoted) return -1;
-        if (!aPromoted && bPromoted) return 1;
-        if (aPromoted && bPromoted) return new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime();
-        const aFeatured = a.profiles?.has_featured_badge;
-        const bFeatured = b.profiles?.has_featured_badge;
-        if (aFeatured && !bFeatured) return -1;
-        if (!aFeatured && bFeatured) return 1;
-        return 0;
-      });
-    }
+      console.log("[HomePage] query result:", { matCount: matData?.length, matErr, reqCount: reqData?.length, reqErr });
 
-    if (matErr || reqErr) {
-      console.error("Feed query error:", { matErr, reqErr });
+      if (matData) {
+        const now = new Date().toISOString();
+        matData.sort((a: any, b: any) => {
+          const aPromoted = a.is_promoted && a.promotion_expires_at && a.promotion_expires_at > now;
+          const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
+          if (aPromoted && !bPromoted) return -1;
+          if (!aPromoted && bPromoted) return 1;
+          if (aPromoted && bPromoted) return new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime();
+          const aFeatured = a.profiles?.has_featured_badge;
+          const bFeatured = b.profiles?.has_featured_badge;
+          if (aFeatured && !bFeatured) return -1;
+          if (!aFeatured && bFeatured) return 1;
+          return 0;
+        });
+      }
+
+      if (matErr || reqErr) {
+        console.error("Feed query error:", { matErr, reqErr });
+        setLoadError("We couldn't sync data from the server. Please retry.");
+      }
+
+      setMaterials((matData as unknown as Material[]) || []);
+      setRequests((reqData as unknown as MaterialRequest[]) || []);
+    } catch (e) {
+      console.error("[HomePage] fetchData exception:", e);
       setLoadError("We couldn't sync data from the server. Please retry.");
     }
-
-    setMaterials((matData as unknown as Material[]) || []);
-    setRequests((reqData as unknown as MaterialRequest[]) || []);
     setLoading(false);
   }, []);
 
