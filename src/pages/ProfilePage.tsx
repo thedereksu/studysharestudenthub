@@ -200,7 +200,7 @@ const ProfilePage = () => {
                         if (!user) return;
                         setApplyingBadge(true);
                         try {
-                          const { data, error } = await supabase.rpc("apply_for_featured_badge" as any, { p_reason: badgeReason });
+                          const { data, error } = await supabase.rpc("apply_for_featured_badge", { p_reason: badgeReason });
                           if (error) throw error;
                           const result = data as unknown as { success: boolean; error?: string };
                           if (!result.success) {
