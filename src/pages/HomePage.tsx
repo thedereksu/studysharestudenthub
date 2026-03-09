@@ -17,7 +17,7 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -42,7 +42,10 @@ const HomePage = () => {
         const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
         if (aPromoted && !bPromoted) return -1;
         if (!aPromoted && bPromoted) return 1;
-        if (aPromoted && bPromoted) return new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime();
+        if (aPromoted && bPromoted)
+          return (
+            new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime()
+          );
         const aFeatured = a.profiles?.has_featured_badge;
         const bFeatured = b.profiles?.has_featured_badge;
         if (aFeatured && !bFeatured) return -1;
@@ -62,8 +65,9 @@ const HomePage = () => {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return;
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, authLoading, user?.id]);
 
   const filtered = materials.filter((l) => {
     const matchesSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
