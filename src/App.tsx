@@ -16,6 +16,9 @@ import MessagesPage from "@/pages/MessagesPage";
 import ChatPage from "@/pages/ChatPage";
 import AuthPage from "@/pages/AuthPage";
 import AdminPage from "@/pages/AdminPage";
+import BuyCreditsPage from "@/pages/BuyCreditsPage";
+import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
+import PaymentCancelledPage from "@/pages/PaymentCancelledPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
