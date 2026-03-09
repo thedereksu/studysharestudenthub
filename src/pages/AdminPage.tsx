@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins, HelpCircle, Award, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -111,55 +111,38 @@ const AdminPage = () => {
     return data;
   };
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = async () => {
     setLoadingData(true);
-
-    const [usersRes, matsRes, reqsRes, logsRes, reportsRes, badgeRes] = await Promise.allSettled([
-      callAdmin({ action: "list_users" }),
-      callAdmin({ action: "list_materials" }),
-      callAdmin({ action: "list_requests" }),
-      callAdmin({ action: "list_audit_log" }),
-      callAdmin({ action: "list_reports" }),
-      callAdmin({ action: "list_badge_applications" }),
-    ]);
-
-    setUsers(usersRes.status === "fulfilled" ? usersRes.value.users || [] : []);
-    setMaterials(matsRes.status === "fulfilled" ? matsRes.value.materials || [] : []);
-    setRequests(reqsRes.status === "fulfilled" ? reqsRes.value.requests || [] : []);
-    setAuditLog(logsRes.status === "fulfilled" ? logsRes.value.logs || [] : []);
-    setReports(reportsRes.status === "fulfilled" ? reportsRes.value.reports || [] : []);
-    setBadgeApplications(badgeRes.status === "fulfilled" ? badgeRes.value.applications || [] : []);
-
-    const failedSections = [
-      usersRes.status === "rejected" ? "users" : null,
-      matsRes.status === "rejected" ? "materials" : null,
-      reqsRes.status === "rejected" ? "requests" : null,
-      logsRes.status === "rejected" ? "audit log" : null,
-      reportsRes.status === "rejected" ? "reports" : null,
-      badgeRes.status === "rejected" ? "badges" : null,
-    ].filter(Boolean);
-
-    if (failedSections.length) {
-      toast({
-        title: "Some admin data failed to load",
-        description: `Couldn't load: ${failedSections.join(", ")}`,
-        variant: "destructive",
-      });
+    try {
+      const [usersRes, matsRes, reqsRes, logsRes, reportsRes, badgeRes] = await Promise.all([
+        callAdmin({ action: "list_users" }),
+        callAdmin({ action: "list_materials" }),
+        callAdmin({ action: "list_requests" }),
+        callAdmin({ action: "list_audit_log" }),
+        callAdmin({ action: "list_reports" }),
+        callAdmin({ action: "list_badge_applications" }),
+      ]);
+      setUsers(usersRes.users || []);
+      setMaterials(matsRes.materials || []);
+      setRequests(reqsRes.requests || []);
+      setAuditLog(logsRes.logs || []);
+      setReports(reportsRes.reports || []);
+      setBadgeApplications(badgeRes.applications || []);
+    } catch (e: any) {
+      toast({ title: "Failed to load admin data", description: sanitizeError(e), variant: "destructive" });
     }
-
     setLoadingData(false);
-  }, [toast]);
+  };
 
   useEffect(() => {
-    if (authLoading || roleLoading) return;
-
-    if (!user || !isAdmin) {
-      navigate("/", { replace: true });
-      return;
+    if (!authLoading && !roleLoading) {
+      if (!user || !isAdmin) {
+        navigate("/", { replace: true });
+      } else {
+        fetchAll();
+      }
     }
-
-    void fetchAll();
-  }, [user, isAdmin, authLoading, roleLoading, navigate, fetchAll]);
+  }, [user, isAdmin, authLoading, roleLoading]);
 
   const handleDeleteMaterial = async (id: string) => {
     try {
