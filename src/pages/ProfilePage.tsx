@@ -230,7 +230,7 @@ const ProfilePage = () => {
               ) : (
                 <Button variant="outline" className="w-full mt-3" onClick={() => setShowBadgeForm(true)}>
                   <Award className="w-4 h-4 mr-1" />
-                  Apply for Featured Contributor Badge — 15 Credits
+                  Apply for Featured Contributor Badge
                 </Button>
               )
             )}
