@@ -126,6 +126,11 @@ const ListingCard = ({ material }: { material: Material }) => {
             ⭐ Promoted
           </span>
         )}
+        {(material as any).teacher_approved && !isPromoted && (
+          <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 border border-emerald-500/25 flex items-center gap-0.5">
+            <ShieldCheck className="w-3 h-3" /> Approved
+          </span>
+        )}
         <span
           className={`absolute top-2 right-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
             exchangeBadgeClass[material.exchange_type] || ""
