@@ -46,6 +46,11 @@ const HomePage = () => {
           return (
             new Date(b.promotion_expires_at).getTime() - new Date(a.promotion_expires_at).getTime()
           );
+        // Teacher approved below promoted
+        const aApproved = !!a.teacher_approved;
+        const bApproved = !!b.teacher_approved;
+        if (aApproved && !bApproved) return -1;
+        if (!aApproved && bApproved) return 1;
         const aFeatured = a.profiles?.has_featured_badge;
         const bFeatured = b.profiles?.has_featured_badge;
         if (aFeatured && !bFeatured) return -1;
