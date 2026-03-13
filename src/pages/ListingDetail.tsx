@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil, Megaphone } from "lucide-react";
+import { ArrowLeft, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil, Megaphone, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useTeacherRole } from "@/hooks/useTeacherRole";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
 import { getSignedUrls } from "@/lib/storage";
 import CommentsSection from "@/components/CommentsSection";
 import ReportModal from "@/components/ReportModal";
+import TeacherApprovedBadge from "@/components/TeacherApprovedBadge";
 import type { Material, MaterialFile, Review } from "@/lib/types";
 import {
   DropdownMenu,
