@@ -271,10 +271,11 @@ const ListingDetail = () => {
       </div>
 
       <div className="px-4 pt-4 pb-6">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">{material.subject}</span>
           <span className="text-[10px] text-muted-foreground">·</span>
           <span className="text-[10px] font-medium text-muted-foreground">{material.type}</span>
+          {material.teacher_approved && <TeacherApprovedBadge />}
         </div>
 
         <h1 className="text-xl text-foreground leading-tight mb-1">{material.title}</h1>
