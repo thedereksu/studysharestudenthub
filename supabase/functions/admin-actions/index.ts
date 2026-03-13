@@ -188,6 +188,17 @@ Deno.serve(async (req) => {
         .select("email");
       const blockedSet = new Set((blockedEmails || []).map((b: any) => b.email.toLowerCase()));
 
+      // Get user roles
+      const { data: allRoles } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_id, role");
+      const roleMap = new Map<string, string[]>();
+      for (const r of allRoles || []) {
+        const existing = roleMap.get(r.user_id) || [];
+        existing.push(r.role);
+        roleMap.set(r.user_id, existing);
+      }
+
       // Map emails to profiles
       const emailMap = new Map<string, string>();
       for (const au of authUsers || []) {
@@ -198,6 +209,7 @@ Deno.serve(async (req) => {
         ...p,
         email: emailMap.get(p.id) || null,
         is_blocked: emailMap.get(p.id) ? blockedSet.has(emailMap.get(p.id)!.toLowerCase()) : false,
+        roles: roleMap.get(p.id) || [],
       }));
 
       return new Response(JSON.stringify({ users: usersWithEmail }), {
@@ -598,6 +610,77 @@ Deno.serve(async (req) => {
         action_type: "delete_request",
         target_id: targetId,
         details: { title: request.title, requester: request.requester_user_id },
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "assign_teacher") {
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: "Target user ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if already has teacher role
+      const { data: existing } = await supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", targetId)
+        .eq("role", "teacher")
+        .maybeSingle();
+
+      if (!existing) {
+        const { error: insertErr } = await supabaseAdmin
+          .from("user_roles")
+          .insert({ user_id: targetId, role: "teacher" });
+        if (insertErr) {
+          console.error("assign_teacher error:", insertErr);
+          return new Response(JSON.stringify({ error: insertErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: "assign_teacher",
+        target_id: targetId,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "remove_teacher") {
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: "Target user ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await supabaseAdmin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", targetId)
+        .eq("role", "teacher");
+
+      // Also clear any teacher approvals made by this user
+      await supabaseAdmin
+        .from("materials")
+        .update({ teacher_approved: false, approved_by_teacher_id: null, approved_at: null })
+        .eq("approved_by_teacher_id", targetId);
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: "remove_teacher",
+        target_id: targetId,
       });
 
       return new Response(JSON.stringify({ success: true }), {

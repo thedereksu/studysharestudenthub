@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil, Megaphone } from "lucide-react";
+import { ArrowLeft, Lock, BookOpen, FileText, Download, Eye, Coins, Star, Pencil, Megaphone, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useTeacherRole } from "@/hooks/useTeacherRole";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
 import { getSignedUrls } from "@/lib/storage";
 import CommentsSection from "@/components/CommentsSection";
 import ReportModal from "@/components/ReportModal";
+import TeacherApprovedBadge from "@/components/TeacherApprovedBadge";
 import type { Material, MaterialFile, Review } from "@/lib/types";
 import {
   DropdownMenu,
@@ -84,11 +86,13 @@ const ListingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isTeacher } = useTeacherRole();
   const { toast } = useToast();
   const [material, setMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [approvingTeacher, setApprovingTeacher] = useState(false);
 
   // Signed URL state
   const [signedFiles, setSignedFiles] = useState<MaterialFile[]>([]);
@@ -267,10 +271,11 @@ const ListingDetail = () => {
       </div>
 
       <div className="px-4 pt-4 pb-6">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">{material.subject}</span>
           <span className="text-[10px] text-muted-foreground">·</span>
           <span className="text-[10px] font-medium text-muted-foreground">{material.type}</span>
+          {material.teacher_approved && <TeacherApprovedBadge />}
         </div>
 
         <h1 className="text-xl text-foreground leading-tight mb-1">{material.title}</h1>
@@ -413,6 +418,65 @@ const ListingDetail = () => {
 
           <ReportModal materialId={material.id} />
         </div>
+
+        {/* Teacher Approval Button */}
+        {isTeacher && user && !isOwner && (
+          <div className="mt-4">
+            {material.teacher_approved ? (
+              <Button
+                variant="outline"
+                className="w-full border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                disabled={approvingTeacher}
+                onClick={async () => {
+                  setApprovingTeacher(true);
+                  try {
+                    const { error } = await supabase
+                      .from("materials")
+                      .update({ teacher_approved: false, approved_by_teacher_id: null, approved_at: null } as any)
+                      .eq("id", material.id);
+                    if (error) throw error;
+                    setMaterial({ ...material, teacher_approved: false, approved_by_teacher_id: null, approved_at: null });
+                    toast({ title: "Teacher approval removed" });
+                  } catch (e: any) {
+                    toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+                  } finally {
+                    setApprovingTeacher(false);
+                  }
+                }}
+              >
+                <ShieldCheck className="w-4 h-4 mr-1" /> Remove Teacher Approval
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                disabled={approvingTeacher}
+                onClick={async () => {
+                  setApprovingTeacher(true);
+                  try {
+                    const { error } = await supabase
+                      .from("materials")
+                      .update({
+                        teacher_approved: true,
+                        approved_by_teacher_id: user.id,
+                        approved_at: new Date().toISOString(),
+                      } as any)
+                      .eq("id", material.id);
+                    if (error) throw error;
+                    setMaterial({ ...material, teacher_approved: true, approved_by_teacher_id: user.id, approved_at: new Date().toISOString() });
+                    toast({ title: "Material marked as Teacher Approved!" });
+                  } catch (e: any) {
+                    toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+                  } finally {
+                    setApprovingTeacher(false);
+                  }
+                }}
+              >
+                <ShieldCheck className="w-4 h-4 mr-1" /> Mark as Teacher Approved
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Review section */}
         {user && !isOwner && (

@@ -29,6 +29,10 @@ const SearchPage = () => {
           const bPromoted = b.is_promoted && b.promotion_expires_at && b.promotion_expires_at > now;
           if (aPromoted && !bPromoted) return -1;
           if (!aPromoted && bPromoted) return 1;
+          const aApproved = !!a.teacher_approved;
+          const bApproved = !!b.teacher_approved;
+          if (aApproved && !bApproved) return -1;
+          if (!aApproved && bApproved) return 1;
           return 0;
         });
       }

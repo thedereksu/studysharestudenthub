@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award, X, Coins } from "lucide-react";
+import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award, X, Coins, GraduationCap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTeacherRole } from "@/hooks/useTeacherRole";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +16,7 @@ import type { Material, Profile, MaterialRequest } from "@/lib/types";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { isTeacher } = useTeacherRole();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -153,6 +155,11 @@ const ProfilePage = () => {
                 <h2 className="text-lg font-sans font-semibold text-foreground">{profile?.name || "Set your name"}</h2>
                 {profile?.school && <p className="text-xs text-muted-foreground">{profile.school}</p>}
                 <ContributorBadge uploadCount={materials.length} />
+                {isTeacher && (
+                  <Badge variant="outline" className="gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    <GraduationCap className="w-3 h-3" /> Teacher Verified
+                  </Badge>
+                )}
                 {profile?.has_featured_badge && (
                   <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
                     <Award className="w-3 h-3" /> Featured Contributor

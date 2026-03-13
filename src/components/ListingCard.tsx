@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   GraduationCap,
   File,
+  ShieldCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getSignedUrls } from "@/lib/storage";
@@ -123,6 +124,11 @@ const ListingCard = ({ material }: { material: Material }) => {
         {isPromoted && (
           <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
             ⭐ Promoted
+          </span>
+        )}
+        {(material as any).teacher_approved && !isPromoted && (
+          <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 border border-emerald-500/25 flex items-center gap-0.5">
+            <ShieldCheck className="w-3 h-3" /> Approved
           </span>
         )}
         <span

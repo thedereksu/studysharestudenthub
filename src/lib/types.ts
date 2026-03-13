@@ -31,6 +31,9 @@ export interface Material {
   is_promoted: boolean;
   promotion_expires_at: string | null;
   promotion_tier: string | null;
+  teacher_approved: boolean;
+  approved_by_teacher_id: string | null;
+  approved_at: string | null;
   created_at: string;
   updated_at: string;
   profiles?: Profile;
