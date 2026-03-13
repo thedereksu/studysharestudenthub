@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   GraduationCap,
   File,
+  ShieldCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getSignedUrls } from "@/lib/storage";
