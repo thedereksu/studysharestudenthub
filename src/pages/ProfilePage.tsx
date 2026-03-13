@@ -16,6 +16,7 @@ import type { Material, Profile, MaterialRequest } from "@/lib/types";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { isTeacher } = useTeacherRole();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
