@@ -419,6 +419,65 @@ const ListingDetail = () => {
           <ReportModal materialId={material.id} />
         </div>
 
+        {/* Teacher Approval Button */}
+        {isTeacher && user && !isOwner && (
+          <div className="mt-4">
+            {material.teacher_approved ? (
+              <Button
+                variant="outline"
+                className="w-full border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                disabled={approvingTeacher}
+                onClick={async () => {
+                  setApprovingTeacher(true);
+                  try {
+                    const { error } = await supabase
+                      .from("materials")
+                      .update({ teacher_approved: false, approved_by_teacher_id: null, approved_at: null } as any)
+                      .eq("id", material.id);
+                    if (error) throw error;
+                    setMaterial({ ...material, teacher_approved: false, approved_by_teacher_id: null, approved_at: null });
+                    toast({ title: "Teacher approval removed" });
+                  } catch (e: any) {
+                    toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+                  } finally {
+                    setApprovingTeacher(false);
+                  }
+                }}
+              >
+                <ShieldCheck className="w-4 h-4 mr-1" /> Remove Teacher Approval
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                disabled={approvingTeacher}
+                onClick={async () => {
+                  setApprovingTeacher(true);
+                  try {
+                    const { error } = await supabase
+                      .from("materials")
+                      .update({
+                        teacher_approved: true,
+                        approved_by_teacher_id: user.id,
+                        approved_at: new Date().toISOString(),
+                      } as any)
+                      .eq("id", material.id);
+                    if (error) throw error;
+                    setMaterial({ ...material, teacher_approved: true, approved_by_teacher_id: user.id, approved_at: new Date().toISOString() });
+                    toast({ title: "Material marked as Teacher Approved!" });
+                  } catch (e: any) {
+                    toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+                  } finally {
+                    setApprovingTeacher(false);
+                  }
+                }}
+              >
+                <ShieldCheck className="w-4 h-4 mr-1" /> Mark as Teacher Approved
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Review section */}
         {user && !isOwner && (
           <div className="mt-6 bg-secondary rounded-lg p-4">
