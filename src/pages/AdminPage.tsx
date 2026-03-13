@@ -34,6 +34,7 @@ interface AdminUser {
   created_at: string;
   credit_balance: number;
   is_blocked: boolean;
+  roles: string[];
 }
 
 interface AdminMaterial {
