@@ -617,6 +617,77 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "assign_teacher") {
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: "Target user ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if already has teacher role
+      const { data: existing } = await supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", targetId)
+        .eq("role", "teacher")
+        .maybeSingle();
+
+      if (!existing) {
+        const { error: insertErr } = await supabaseAdmin
+          .from("user_roles")
+          .insert({ user_id: targetId, role: "teacher" });
+        if (insertErr) {
+          console.error("assign_teacher error:", insertErr);
+          return new Response(JSON.stringify({ error: insertErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: "assign_teacher",
+        target_id: targetId,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "remove_teacher") {
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: "Target user ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await supabaseAdmin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", targetId)
+        .eq("role", "teacher");
+
+      // Also clear any teacher approvals made by this user
+      await supabaseAdmin
+        .from("materials")
+        .update({ teacher_approved: false, approved_by_teacher_id: null, approved_at: null })
+        .eq("approved_by_teacher_id", targetId);
+
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: "remove_teacher",
+        target_id: targetId,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
