@@ -269,10 +269,11 @@ const AdminPage = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Credits</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead className="w-36">Actions</TableHead>
+                  <TableHead className="w-44">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
