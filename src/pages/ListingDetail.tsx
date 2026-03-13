@@ -86,11 +86,13 @@ const ListingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isTeacher } = useTeacherRole();
   const { toast } = useToast();
   const [material, setMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [approvingTeacher, setApprovingTeacher] = useState(false);
 
   // Signed URL state
   const [signedFiles, setSignedFiles] = useState<MaterialFile[]>([]);
