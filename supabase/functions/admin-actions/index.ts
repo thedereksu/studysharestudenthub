@@ -188,6 +188,17 @@ Deno.serve(async (req) => {
         .select("email");
       const blockedSet = new Set((blockedEmails || []).map((b: any) => b.email.toLowerCase()));
 
+      // Get user roles
+      const { data: allRoles } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_id, role");
+      const roleMap = new Map<string, string[]>();
+      for (const r of allRoles || []) {
+        const existing = roleMap.get(r.user_id) || [];
+        existing.push(r.role);
+        roleMap.set(r.user_id, existing);
+      }
+
       // Map emails to profiles
       const emailMap = new Map<string, string>();
       for (const au of authUsers || []) {
@@ -198,6 +209,7 @@ Deno.serve(async (req) => {
         ...p,
         email: emailMap.get(p.id) || null,
         is_blocked: emailMap.get(p.id) ? blockedSet.has(emailMap.get(p.id)!.toLowerCase()) : false,
+        roles: roleMap.get(p.id) || [],
       }));
 
       return new Response(JSON.stringify({ users: usersWithEmail }), {
