@@ -281,6 +281,22 @@ const AdminPage = () => {
                   <TableRow key={u.id}>
                     <TableCell className="font-medium text-foreground">{u.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{u.email || "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {u.roles.includes("admin") && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/15 text-primary">Admin</span>
+                        )}
+                        {u.roles.includes("teacher") && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600">Teacher</span>
+                        )}
+                        {u.roles.length === 0 && (
+                          <span className="text-[10px] text-muted-foreground">Student</span>
+                        )}
+                        {u.roles.length > 0 && !u.roles.includes("admin") && !u.roles.includes("teacher") && (
+                          <span className="text-[10px] text-muted-foreground">{u.roles.join(", ")}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-foreground font-medium">{u.credit_balance}</TableCell>
                     <TableCell>
                       {u.is_blocked ? (
