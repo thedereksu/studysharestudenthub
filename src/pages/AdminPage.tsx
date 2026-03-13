@@ -223,6 +223,26 @@ const AdminPage = () => {
     setAdjusting(false);
   };
 
+  const handleAssignTeacher = async (userId: string) => {
+    try {
+      await callAdmin({ action: "assign_teacher", targetId: userId });
+      toast({ title: "Teacher role assigned" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
+  const handleRemoveTeacher = async (userId: string) => {
+    try {
+      await callAdmin({ action: "remove_teacher", targetId: userId });
+      toast({ title: "Teacher role removed" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
   if (authLoading || roleLoading) return <div className="max-w-4xl mx-auto px-4 pt-12 text-center text-muted-foreground">Loading...</div>;
   if (!isAdmin) return null;
 
