@@ -778,6 +778,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_teacher_or_admin_role: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       is_email_blocked: { Args: { check_email: string }; Returns: boolean }
       promote_material:
         | { Args: { p_material_id: string }; Returns: Json }
