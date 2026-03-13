@@ -308,7 +308,30 @@ const AdminPage = () => {
                     <TableCell className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       {u.id !== user?.id && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {u.roles.includes("teacher") ? (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Remove Teacher Role">
+                                  <GraduationCap className="w-4 h-4 text-emerald-600" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remove teacher role from "{u.name}"?</AlertDialogTitle>
+                                  <AlertDialogDescription>This will remove the Teacher badge and revoke their ability to approve materials. Any materials they approved will lose approval.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleRemoveTeacher(u.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove Teacher</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ) : (
+                            <Button variant="ghost" size="icon" title="Assign Teacher Role" onClick={() => handleAssignTeacher(u.id)}>
+                              <GraduationCap className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" title="Adjust Credits" onClick={() => openCreditDialog(u)}>
                             <Coins className="w-4 h-4 text-primary" />
                           </Button>
