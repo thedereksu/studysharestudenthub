@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award, X, Coins } from "lucide-react";
+import { Settings, LogOut, Pencil, Trash2, Upload, BookOpen, Award, X, Coins, GraduationCap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTeacherRole } from "@/hooks/useTeacherRole";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
