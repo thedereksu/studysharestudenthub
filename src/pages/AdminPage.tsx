@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins, HelpCircle, Award, XCircle, GraduationCap } from "lucide-react";
+import { Shield, Trash2, Users, BookOpen, ClipboardList, Flag, Ban, CheckCircle, Coins, HelpCircle, Award, XCircle, GraduationCap, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsTab from "@/components/admin/ReportsTab";
+import MessagesTab from "@/components/admin/MessagesTab";
 
 interface AdminUser {
   id: string;
@@ -260,6 +261,7 @@ const AdminPage = () => {
           <TabsTrigger value="badges"><Award className="w-4 h-4 mr-1" /> Badges</TabsTrigger>
           <TabsTrigger value="reports"><Flag className="w-4 h-4 mr-1" /> Reports</TabsTrigger>
           <TabsTrigger value="audit"><ClipboardList className="w-4 h-4 mr-1" /> Audit Log</TabsTrigger>
+          <TabsTrigger value="messages"><MessageSquare className="w-4 h-4 mr-1" /> Messages</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -601,6 +603,10 @@ const AdminPage = () => {
 
         <TabsContent value="reports">
           <ReportsTab reports={reports} loading={loadingData} onRefresh={fetchAll} />
+        </TabsContent>
+
+        <TabsContent value="messages">
+          <MessagesTab />
         </TabsContent>
 
         <TabsContent value="audit">

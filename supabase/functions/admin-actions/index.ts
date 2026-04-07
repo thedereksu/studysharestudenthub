@@ -688,6 +688,40 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "list_messages") {
+      // Fetch all messages with sender name and conversation participants
+      const { data: messages, error: messagesError } = await supabaseAdmin
+        .from("messages")
+        .select(`
+          id,
+          content,
+          created_at,
+          sender_id,
+          conversation_id,
+          sender:profiles!messages_sender_id_fkey(id, name),
+          conversation:conversations!messages_conversation_id_fkey(
+            id,
+            user1_id,
+            user2_id,
+            user1:profiles!conversations_user1_id_fkey(id, name),
+            user2:profiles!conversations_user2_id_fkey(id, name)
+          )
+        `)
+        .order("created_at", { ascending: true });
+
+      if (messagesError) {
+        console.error("list_messages error:", messagesError);
+        return new Response(JSON.stringify({ error: messagesError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ messages: messages || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
