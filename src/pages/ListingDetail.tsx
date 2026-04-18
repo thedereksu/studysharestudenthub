@@ -11,6 +11,8 @@ import { getSignedUrls } from "@/lib/storage";
 import CommentsSection from "@/components/CommentsSection";
 import ReportModal from "@/components/ReportModal";
 import TeacherApprovedBadge from "@/components/TeacherApprovedBadge";
+import PostAIChatBubble from "@/components/PostAIChatBubble";
+import PostAIChatSidebar from "@/components/PostAIChatSidebar";
 import type { Material, MaterialFile, Review } from "@/lib/types";
 import {
   DropdownMenu,
@@ -104,6 +106,7 @@ const ListingDetail = () => {
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
 
   const fetchSignedUrls = async (materialId: string) => {
     const result = await getSignedUrls(materialId);
@@ -237,6 +240,7 @@ const ListingDetail = () => {
   const uploaderName = material.profiles?.name || "Anonymous";
 
   return (
+    <>
     <div className="max-w-lg mx-auto animate-fade-in">
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
         <button onClick={() => navigate(-1)} className="p-1.5 rounded-full hover:bg-muted transition-colors">
@@ -499,6 +503,20 @@ const ListingDetail = () => {
         </div>
       </div>
     </div>
+
+    {/* AI Chat Bubble and Sidebar */}
+    {user && (
+      <>
+        <PostAIChatBubble onClick={() => setAiChatOpen(true)} />
+        <PostAIChatSidebar
+          materialId={material.id}
+          materialTitle={material.title}
+          isOpen={aiChatOpen}
+          onClose={() => setAiChatOpen(false)}
+        />
+      </>
+    )}
+    </>
   );
 };
 

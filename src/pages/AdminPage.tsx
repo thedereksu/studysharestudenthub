@@ -224,6 +224,26 @@ const AdminPage = () => {
     setAdjusting(false);
   };
 
+  const handleAssignAdmin = async (userId: string) => {
+    try {
+      await callAdmin({ action: "assign_admin", targetId: userId });
+      toast({ title: "Admin role assigned" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
+  const handleRemoveAdmin = async (userId: string) => {
+    try {
+      await callAdmin({ action: "remove_admin", targetId: userId });
+      toast({ title: "Admin role removed" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Failed", description: sanitizeError(e), variant: "destructive" });
+    }
+  };
+
   const handleAssignTeacher = async (userId: string) => {
     try {
       await callAdmin({ action: "assign_teacher", targetId: userId });
@@ -311,6 +331,43 @@ const AdminPage = () => {
                     <TableCell>
                       {u.id !== user?.id && (
                         <div className="flex items-center gap-1 flex-wrap">
+                          {u.roles.includes("admin") ? (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Remove Admin Role">
+                                  <Shield className="w-4 h-4 text-primary" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remove admin role from "{u.name}"?</AlertDialogTitle>
+                                  <AlertDialogDescription>This will revoke their admin access. They will no longer be able to view or use the Admin Dashboard.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleRemoveAdmin(u.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove Admin</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ) : (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Promote to Admin">
+                                  <Shield className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Promote "{u.name}" to admin?</AlertDialogTitle>
+                                  <AlertDialogDescription>This will grant full admin access, including the ability to manage users, materials, and other admins. Only do this for trusted users.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleAssignAdmin(u.id)}>Promote to Admin</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                           {u.roles.includes("teacher") ? (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>

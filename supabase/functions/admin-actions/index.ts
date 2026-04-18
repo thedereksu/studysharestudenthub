@@ -688,6 +688,78 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "assign_admin") {
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: "Target user ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Prevent self-promotion (already admin)
+      if (targetId === userId) {
+        return new Response(JSON.stringify({ error: "You are already an admin" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Check if already has admin role
+      const { data: existingAdmin } = await supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", targetId)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (!existingAdmin) {
+        const { error: insertErr } = await supabaseAdmin
+          .from("user_roles")
+          .insert({ user_id: targetId, role: "admin" });
+        if (insertErr) {
+          console.error("assign_admin error:", insertErr);
+          return new Response(JSON.stringify({ error: insertErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: "assign_admin",
+        target_id: targetId,
+      });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "remove_admin") {
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: "Target user ID required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Prevent self-demotion
+      if (targetId === userId) {
+        return new Response(JSON.stringify({ error: "You cannot remove your own admin role" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      await supabaseAdmin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", targetId)
+        .eq("role", "admin");
+      await supabaseAdmin.from("admin_actions").insert({
+        admin_id: userId,
+        action_type: "remove_admin",
+        target_id: targetId,
+      });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "list_messages") {
       // Fetch all messages with sender name and conversation participants
       const { data: messages, error: messagesError } = await supabaseAdmin
