@@ -505,8 +505,8 @@ const ListingDetail = () => {
     </div>
 
     {/* AI Chat Bubble and Sidebar */}
-    {user && (
-      <>
+    {user && material && (
+      <div className="relative z-50">
         <PostAIChatBubble onClick={() => setAiChatOpen(true)} />
         <PostAIChatSidebar
           materialId={material.id}
@@ -514,7 +514,7 @@ const ListingDetail = () => {
           isOpen={aiChatOpen}
           onClose={() => setAiChatOpen(false)}
         />
-      </>
+      </div>
     )}
     </>
   );

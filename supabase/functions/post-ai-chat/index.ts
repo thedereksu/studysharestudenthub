@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
           },
         ];
 
-    for (const file of files) {
+      for (const file of files) {
       // Check cache first
       const { data: cached } = await supabaseAdmin
         .from("post_ai_file_cache")
@@ -244,9 +244,25 @@ Deno.serve(async (req) => {
       if (cached) {
         fileContext += `\n\n[File: ${file.file_name}]\n${cached.extracted_text}`;
       } else if (file.file_url) {
-        // Extract text from file
+        // Extract storage path from URL
+        let finalUrl = file.file_url;
+        const pathMatch = file.file_url.match(/\/materials\/(.+?)(?:\?.*)?$/);
+        
+        if (pathMatch) {
+          const storagePath = pathMatch[1];
+          // Generate a signed URL for internal processing
+          const { data: signedData } = await supabaseAdmin.storage
+            .from("materials")
+            .createSignedUrl(storagePath, 60);
+          
+          if (signedData?.signedUrl) {
+            finalUrl = signedData.signedUrl;
+          }
+        }
+
+        // Extract text from file using the (potentially signed) URL
         const extractedText = await extractFileText(
-          file.file_url,
+          finalUrl,
           file.file_name,
           file.file_type,
           openai
@@ -266,7 +282,7 @@ Deno.serve(async (req) => {
 
         fileContext += `\n\n[File: ${file.file_name}]\n${extractedText}`;
       }
-    }
+    }}
 
     // Add user message to history
     messages.push({

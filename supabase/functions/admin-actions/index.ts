@@ -710,9 +710,10 @@ Deno.serve(async (req) => {
         .eq("role", "admin")
         .maybeSingle();
       if (!existingAdmin) {
+        // Upsert or insert with cast to avoid enum issues
         const { error: insertErr } = await supabaseAdmin
           .from("user_roles")
-          .insert({ user_id: targetId, role: "admin" });
+          .upsert({ user_id: targetId, role: "admin" as any }, { onConflict: "user_id,role" });
         if (insertErr) {
           console.error("assign_admin error:", insertErr);
           return new Response(JSON.stringify({ error: insertErr.message }), {
