@@ -1,5 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { OpenAI } from "https://esm.sh/openai@1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,29 +17,14 @@ interface RequestBody {
   message: string;
 }
 
-async function extractTextFromFile(
-  url: string,
-  fileType: string
-): Promise<string> {
+async function extractTextFromFile(url: string, fileType: string): Promise<string> {
   try {
-    // For images, just note that they're present
-    if (fileType.startsWith("image/")) {
-      return "[Image file - visual content present]";
-    }
-    
-    // For PDFs, return a placeholder
-    if (fileType.includes("pdf")) {
-      return "[PDF file - content extraction requires external service]";
-    }
-    
-    // For text files, try to fetch
+    if (fileType.startsWith("image/")) return "[Image file - visual content present]";
+    if (fileType.includes("pdf")) return "[PDF file - content extraction requires external service]";
     if (fileType.includes("text") || fileType.includes("plain")) {
       const response = await fetch(url);
-      if (response.ok) {
-        return await response.text();
-      }
+      if (response.ok) return (await response.text()).slice(0, 10000);
     }
-    
     return "[File content unavailable]";
   } catch (err) {
     console.error("File extraction error:", err);
@@ -48,11 +32,7 @@ async function extractTextFromFile(
   }
 }
 
-async function getOrCreateConversation(
-  supabaseAdmin: any,
-  materialId: string,
-  userId: string
-): Promise<ChatMessage[]> {
+async function getOrCreateConversation(supabaseAdmin: any, materialId: string, userId: string): Promise<ChatMessage[]> {
   try {
     const { data } = await supabaseAdmin
       .from("post_ai_conversations")
@@ -60,7 +40,6 @@ async function getOrCreateConversation(
       .eq("material_id", materialId)
       .eq("user_id", userId)
       .maybeSingle();
-
     return (data?.messages as ChatMessage[]) || [];
   } catch (err) {
     console.error("Error loading conversation:", err);
@@ -68,12 +47,7 @@ async function getOrCreateConversation(
   }
 }
 
-async function saveConversation(
-  supabaseAdmin: any,
-  materialId: string,
-  userId: string,
-  messages: ChatMessage[]
-): Promise<void> {
+async function saveConversation(supabaseAdmin: any, materialId: string, userId: string, messages: ChatMessage[]): Promise<void> {
   try {
     const { data: existing } = await supabaseAdmin
       .from("post_ai_conversations")
@@ -90,11 +64,7 @@ async function saveConversation(
     } else {
       await supabaseAdmin
         .from("post_ai_conversations")
-        .insert({
-          material_id: materialId,
-          user_id: userId,
-          messages,
-        });
+        .insert({ material_id: materialId, user_id: userId, messages });
     }
   } catch (err) {
     console.error("Error saving conversation:", err);
@@ -109,46 +79,34 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!supabaseUrl || !serviceKey || !openaiApiKey) {
+    if (!supabaseUrl || !serviceKey || !lovableApiKey) {
       console.error("Missing environment variables");
       return new Response(
         JSON.stringify({ error: "Server configuration error" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-    const openai = new OpenAI({ apiKey: openaiApiKey });
-
     const body = await req.json() as RequestBody;
     const { materialId, message } = body;
 
     if (!materialId || !message) {
       return new Response(
         JSON.stringify({ error: "materialId and message required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get authenticated user from Authorization header
+    // Auth
     let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
-    
     if (authHeader) {
       try {
         const token = authHeader.replace("Bearer ", "");
-        const anonKey =
-          Deno.env.get("SUPABASE_ANON_KEY") ||
-          Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-        
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
         if (anonKey) {
           const supabaseAuth = createClient(supabaseUrl, anonKey);
           const { data: { user } } = await supabaseAuth.auth.getUser(token);
@@ -196,23 +154,14 @@ Deno.serve(async (req) => {
       hasUnlocked = !!unlock;
     }
 
-    const canAccess = isFree || isOwner || hasUnlocked;
-    if (!canAccess) {
+    if (!(isFree || isOwner || hasUnlocked)) {
       return new Response(
         JSON.stringify({ error: "You do not have access to this material" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get conversation history
-    let messages = await getOrCreateConversation(
-      supabaseAdmin,
-      materialId,
-      userId
-    );
+    let messages = await getOrCreateConversation(supabaseAdmin, materialId, userId);
 
     // Build file context
     let fileContext = "";
@@ -224,19 +173,17 @@ Deno.serve(async (req) => {
 
     for (const file of files) {
       if (file.file_url && file.file_name) {
-        const extractedText = await extractFileText(file.file_url, file.file_type || "");
+        const extractedText = await extractTextFromFile(file.file_url, file.file_type || "");
         fileContext += `\n\n[File: ${file.file_name}]\n${extractedText}`;
       }
     }
 
-    // Add user message
     messages.push({
       role: "user",
       content: message,
       timestamp: new Date().toISOString(),
     });
 
-    // Build system prompt
     const systemPrompt = `You are a helpful AI tutor assistant for a study material sharing platform.
 You are helping a student understand the following study material:
 
@@ -249,57 +196,61 @@ ${fileContext ? `\nAttached Files Content:\n${fileContext}` : "No files attached
 
 Please answer questions about this material clearly and helpfully. If the student asks something unrelated to the material, politely redirect them back to the topic.`;
 
-    // Call OpenAI
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-turbo",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        ...messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-      ],
-      max_tokens: 1024,
-      temperature: 0.7,
+    // Call Lovable AI Gateway
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+      }),
     });
 
-    const assistantMessage = response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text();
+      console.error("AI gateway error:", aiResponse.status, errText);
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit reached. Please try again shortly." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please contact the admin." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI request failed: ${aiResponse.status}`);
+    }
 
-    // Add assistant response
+    const aiData = await aiResponse.json();
+    const assistantMessage = aiData.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
+
     messages.push({
       role: "assistant",
       content: assistantMessage,
       timestamp: new Date().toISOString(),
     });
 
-    // Save conversation
     await saveConversation(supabaseAdmin, materialId, userId, messages);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: assistantMessage,
-        conversationId: materialId,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: true, message: assistantMessage, conversationId: materialId }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("post-ai-chat error:", err);
     const errorMessage = err instanceof Error ? err.message : String(err);
     return new Response(
-      JSON.stringify({
-        error: "Failed to process your request",
-        details: errorMessage,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Failed to process your request", details: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
