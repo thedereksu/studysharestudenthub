@@ -59,7 +59,7 @@ const PostAIChatSidebar = ({
         .maybeSingle();
 
       if (data?.messages) {
-        setMessages(data.messages as ChatMessage[]);
+        setMessages(data.messages as unknown as ChatMessage[]);
       }
     } catch (err) {
       console.error("Failed to load conversation:", err);

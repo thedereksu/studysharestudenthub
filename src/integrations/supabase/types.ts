@@ -524,6 +524,76 @@ export type Database = {
           },
         ]
       }
+      post_ai_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          messages: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          messages?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          messages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_ai_conversations_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_ai_file_cache: {
+        Row: {
+          created_at: string
+          extracted_text: string
+          file_name: string
+          file_type: string | null
+          id: string
+          material_id: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_text: string
+          file_name: string
+          file_type?: string | null
+          id?: string
+          material_id: string
+        }
+        Update: {
+          created_at?: string
+          extracted_text?: string
+          file_name?: string
+          file_type?: string | null
+          id?: string
+          material_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_ai_file_cache_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bio: string | null

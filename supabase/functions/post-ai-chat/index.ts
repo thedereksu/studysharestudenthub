@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
 
         fileContext += `\n\n[File: ${file.file_name}]\n${extractedText}`;
       }
-    }}
+    }
 
     // Add user message to history
     messages.push({
