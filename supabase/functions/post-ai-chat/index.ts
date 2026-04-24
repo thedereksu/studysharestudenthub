@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { OpenAI } from "https://esm.sh/openai@1.41.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,9 +80,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
 
-    if (!supabaseUrl || !serviceKey || !lovableApiKey) {
+    if (!supabaseUrl || !serviceKey || !openaiApiKey) {
       console.error("Missing environment variables");
       return new Response(
         JSON.stringify({ error: "Server configuration error" }),
@@ -90,6 +91,8 @@ Deno.serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+    const openai = new OpenAI({ apiKey: openaiApiKey });
+
     const body = await req.json() as RequestBody;
     const { materialId, message } = body;
 
@@ -196,42 +199,18 @@ ${fileContext ? `\nAttached Files Content:\n${fileContext}` : "No files attached
 
 Please answer questions about this material clearly and helpfully. If the student asks something unrelated to the material, politely redirect them back to the topic.`;
 
-    // Call Lovable AI Gateway
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
-        ],
-      }),
+    // Call OpenAI (or Lovable Gateway emulating OpenAI)
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Use a standard model name
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
+      max_tokens: 1024,
+      temperature: 0.7,
     });
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit reached. Please try again shortly." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please contact the admin." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI request failed: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
+    const assistantMessage = response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
 
     messages.push({
       role: "assistant",
