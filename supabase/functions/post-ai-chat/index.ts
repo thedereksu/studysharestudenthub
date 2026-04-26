@@ -18,22 +18,142 @@ interface RequestBody {
   message: string;
 }
 
-async function extractTextFromFile(url: string, fileType: string): Promise<string> {
+// Extract text from PDF using a simple approach
+async function extractTextFromPDF(url: string): Promise<string> {
   try {
-    if (fileType.startsWith("image/")) return "[Image file - visual content present]";
-    if (fileType.includes("pdf")) return "[PDF file - content extraction requires external service]";
-    if (fileType.includes("text") || fileType.includes("plain")) {
-      const response = await fetch(url);
-      if (response.ok) return (await response.text()).slice(0, 10000);
+    console.log("Attempting to extract text from PDF:", url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error("Failed to fetch PDF:", response.status);
+      return "[PDF file - unable to extract text]";
     }
-    return "[File content unavailable]";
+    
+    // For Deno environment, we can use a simple text extraction approach
+    // In production, consider using a library like pdf-parse or calling an external service
+    const buffer = await response.arrayBuffer();
+    
+    // Simple heuristic: search for text patterns in PDF
+    const text = new TextDecoder().decode(buffer);
+    const matches = text.match(/BT[\s\S]*?ET/g) || [];
+    
+    if (matches.length > 0) {
+      // Extract readable text from PDF operators
+      let extractedText = "";
+      for (const match of matches.slice(0, 50)) { // Limit to first 50 text blocks
+        const textMatch = match.match(/\((.*?)\)/);
+        if (textMatch) {
+          extractedText += textMatch[1] + " ";
+        }
+      }
+      return extractedText.slice(0, 5000) || "[PDF file - text extraction limited]";
+    }
+    
+    return "[PDF file - could not extract readable text]";
   } catch (err) {
-    console.error("File extraction error:", err);
-    return "[Failed to extract file content]";
+    console.error("PDF extraction error:", err);
+    return "[PDF file - extraction failed]";
   }
 }
 
-async function getOrCreateConversation(supabaseAdmin: any, materialId: string, userId: string): Promise<ChatMessage[]> {
+// Extract text from images using OpenAI Vision API
+async function extractTextFromImage(url: string, openai: OpenAI): Promise<string> {
+  try {
+    console.log("Attempting to extract text from image:", url);
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url },
+            },
+            {
+              type: "text",
+              text: "Extract and describe all text, diagrams, charts, and important information from this image. Be thorough and clear.",
+            },
+          ],
+        },
+      ],
+      max_tokens: 2000,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    console.log("Image extraction successful");
+    return content || "[Image - could not extract content]";
+  } catch (err) {
+    console.error("Image OCR error:", err);
+    return "[Image - extraction failed]";
+  }
+}
+
+// Extract text from plain text files
+async function extractTextFromPlainText(url: string): Promise<string> {
+  try {
+    console.log("Attempting to extract text from plain text file:", url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error("Failed to fetch text file:", response.status);
+      return "[Text file - unable to read]";
+    }
+    const text = await response.text();
+    return text.slice(0, 10000); // Limit to first 10k characters
+  } catch (err) {
+    console.error("Text file extraction error:", err);
+    return "[Text file - extraction failed]";
+  }
+}
+
+// Main file extraction dispatcher
+async function extractTextFromFile(
+  url: string,
+  fileType: string,
+  openai: OpenAI
+): Promise<string> {
+  try {
+    console.log("Extracting text from file:", { url: url.slice(0, 50), fileType });
+    
+    // Image files
+    if (fileType.startsWith("image/")) {
+      return await extractTextFromImage(url, openai);
+    }
+    
+    // PDF files
+    if (fileType.includes("pdf")) {
+      return await extractTextFromPDF(url);
+    }
+    
+    // Plain text files
+    if (
+      fileType.includes("text") ||
+      fileType.includes("plain") ||
+      fileType.includes("markdown") ||
+      fileType.includes("json") ||
+      fileType.includes("xml")
+    ) {
+      return await extractTextFromPlainText(url);
+    }
+    
+    // Word documents - note that extraction is limited without a library
+    if (fileType.includes("word") || fileType.includes("document")) {
+      return "[Word document - extraction requires external service]";
+    }
+    
+    // Fallback
+    return "[File type - unable to extract content]";
+  } catch (err) {
+    console.error("File extraction error:", err);
+    return "[File - extraction failed]";
+  }
+}
+
+async function getOrCreateConversation(
+  supabaseAdmin: any,
+  materialId: string,
+  userId: string
+): Promise<ChatMessage[]> {
   try {
     const { data } = await supabaseAdmin
       .from("post_ai_conversations")
@@ -48,7 +168,12 @@ async function getOrCreateConversation(supabaseAdmin: any, materialId: string, u
   }
 }
 
-async function saveConversation(supabaseAdmin: any, materialId: string, userId: string, messages: ChatMessage[]): Promise<void> {
+async function saveConversation(
+  supabaseAdmin: any,
+  materialId: string,
+  userId: string,
+  messages: ChatMessage[]
+): Promise<void> {
   try {
     const { data: existing } = await supabaseAdmin
       .from("post_ai_conversations")
@@ -167,6 +292,7 @@ Deno.serve(async (req) => {
     let messages = await getOrCreateConversation(supabaseAdmin, materialId, userId);
 
     // Build file context
+    console.log("Building file context for material:", materialId);
     let fileContext = "";
     const files = Array.isArray(material.files) && material.files.length > 0
       ? material.files
@@ -174,12 +300,20 @@ Deno.serve(async (req) => {
         ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }]
         : [];
 
+    console.log("Files to process:", files.length);
     for (const file of files) {
       if (file.file_url && file.file_name) {
-        const extractedText = await extractTextFromFile(file.file_url, file.file_type || "");
+        console.log("Processing file:", file.file_name);
+        const extractedText = await extractTextFromFile(
+          file.file_url,
+          file.file_type || "",
+          openai
+        );
         fileContext += `\n\n[File: ${file.file_name}]\n${extractedText}`;
       }
     }
+
+    console.log("File context length:", fileContext.length);
 
     messages.push({
       role: "user",
@@ -197,11 +331,12 @@ Description: ${material.description || "No description provided"}
 
 ${fileContext ? `\nAttached Files Content:\n${fileContext}` : "No files attached"}
 
-Please answer questions about this material clearly and helpfully. If the student asks something unrelated to the material, politely redirect them back to the topic.`;
+Please answer questions about this material clearly and helpfully. Use the attached file content to provide accurate, detailed answers. If the student asks something unrelated to the material, politely redirect them back to the topic.`;
 
     // Call OpenAI (or Lovable Gateway emulating OpenAI)
+    console.log("Calling AI with system prompt length:", systemPrompt.length);
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Use a standard model name
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
