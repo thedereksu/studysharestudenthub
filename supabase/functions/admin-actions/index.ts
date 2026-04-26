@@ -579,10 +579,6 @@ Deno.serve(async (req) => {
       }
 
       if (request.status === "open") {
-        await supabaseAdmin
-          .from("profiles")
-          .update({ credit_balance: supabaseAdmin.rpc ? undefined : undefined })
-          .eq("id", request.requester_user_id);
         // Use raw SQL-like approach: fetch balance, add, update
         const { data: profile } = await supabaseAdmin
           .from("profiles")
