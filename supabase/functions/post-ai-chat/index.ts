@@ -55,7 +55,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// ⚠️ DO NOT CHANGE: PDF extraction using vision model
+// ⚠️ DO NOT CHANGE: PDF extraction using vision model with fallback
 async function extractTextFromPDF(url: string, apiKey: string): Promise<string> {
   try {
     console.log("Extracting PDF via vision model");
@@ -80,11 +80,12 @@ async function extractTextFromPDF(url: string, apiKey: string): Promise<string> 
             { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
-              text: "Extract ALL text content from this PDF document verbatim. Preserve structure (headings, lists, paragraphs). Include any equations, captions, or table contents. Be thorough and complete.",
+              text: "Extract ALL text content from this PDF document verbatim. Preserve structure (headings, lists, paragraphs). Include any equations, captions, or table contents. Be thorough and complete. Return the extracted text as plain text.",
             },
           ],
         },
       ],
+      max_tokens: 4000,
     });
 
     if (!aiResp.ok) {
@@ -93,7 +94,13 @@ async function extractTextFromPDF(url: string, apiKey: string): Promise<string> 
     }
     const data = await aiResp.json();
     const content = data.choices?.[0]?.message?.content;
-    return (content || "[PDF file - no content extracted]").slice(0, 15000);
+    
+    if (!content || content.includes("cannot") || content.includes("unable")) {
+      console.warn("PDF extraction returned error message:", content?.slice(0, 100));
+      return "[PDF file - extraction failed]";
+    }
+    
+    return (content || "[PDF file - no content extracted]").slice(0, 20000);
   } catch (err) {
     console.error("PDF extraction error:", err);
     return "[PDF file - extraction failed]";
@@ -118,6 +125,7 @@ async function extractTextFromImage(url: string, apiKey: string): Promise<string
           ],
         },
       ],
+      max_tokens: 2000,
     });
 
     if (!aiResp.ok) {
@@ -139,7 +147,7 @@ async function extractTextFromPlainText(url: string): Promise<string> {
     const response = await fetch(url);
     if (!response.ok) return "[Text file - unable to read]";
     const text = await response.text();
-    return text.slice(0, 10000);
+    return text.slice(0, 15000);
   } catch (err) {
     console.error("Text file extraction error:", err);
     return "[Text file - extraction failed]";
@@ -334,6 +342,8 @@ Deno.serve(async (req) => {
         : [];
 
     let fileContext = "";
+    console.log("Processing", files.length, "files for material:", materialId);
+    
     for (const file of files) {
       if (!file.file_url || !file.file_name) continue;
 
@@ -359,13 +369,22 @@ Deno.serve(async (req) => {
         }
       }
 
+      console.log("Extracting file:", file.file_name, "type:", file.file_type);
       const extractedText = await extractTextFromFile(
         accessUrl,
         file.file_type || "",
         lovableApiKey
       );
-      fileContext += `\n\n[File: ${file.file_name}]\n${extractedText}`;
+      
+      // Add clear markers for file content
+      fileContext += `\n\n═══════════════════════════════════════\n`;
+      fileContext += `FILE: ${file.file_name}\n`;
+      fileContext += `═══════════════════════════════════════\n`;
+      fileContext += `${extractedText}\n`;
+      fileContext += `═══════════════════════════════════════\n`;
     }
+
+    console.log("Total file context length:", fileContext.length);
 
     messages.push({
       role: "user",
@@ -381,19 +400,24 @@ Subject: ${material.subject}
 Type: ${material.type}
 Description: ${material.description || "No description provided"}
 
-${fileContext ? `\nAttached Files Content:\n${fileContext}` : "No files attached"}
+${fileContext ? `\n✓ ATTACHED FILE CONTENT (provided below):\n${fileContext}\n\n✓ You HAVE access to the file content above. Use it to answer questions accurately.` : "✗ No files attached to this material."}
 
-Please answer questions about this material clearly and helpfully. Use the attached file content to provide accurate, detailed answers. If the student asks something unrelated to the material, politely redirect them back to the topic.`;
+IMPORTANT INSTRUCTIONS:
+1. You CAN read and interpret the file content provided above.
+2. You MUST use the file content to answer student questions accurately.
+3. If the student asks about the material, refer to the file content provided.
+4. Do NOT say you cannot access files - you have the content above.
+5. Provide detailed, accurate answers based on the material provided.`;
 
     // Call Lovable Gateway
-    console.log("Calling Lovable Gateway with file context");
+    console.log("Calling Lovable Gateway with file context length:", fileContext.length);
     const response = await callGateway(lovableApiKey, {
       model: VISION_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
       ],
-      max_tokens: 1024,
+      max_tokens: 2048,
       temperature: 0.7,
     });
 
