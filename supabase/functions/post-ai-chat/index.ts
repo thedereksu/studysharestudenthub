@@ -55,19 +55,102 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// ⚠️ DO NOT CHANGE: PDF extraction using vision model with fallback
-async function extractTextFromPDF(url: string, apiKey: string): Promise<string> {
+// ⚠️ DO NOT CHANGE: Dual-Path file fetcher with fallback
+async function fetchFileWithFallback(
+  url: string,
+  fileName: string,
+  supabaseAdmin: any
+): Promise<ArrayBuffer | null> {
   try {
-    console.log("Extracting PDF via vision model");
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      console.error("Failed to fetch PDF:", resp.status);
+    console.log("Fetching file:", fileName, "from URL:", url.slice(0, 80));
+    
+    // First attempt: Direct fetch (works for public URLs and signed URLs)
+    try {
+      const resp = await fetch(url, { timeout: 30000 });
+      if (resp.ok) {
+        const buffer = await resp.arrayBuffer();
+        console.log("Successfully fetched file via direct URL:", fileName, "size:", buffer.byteLength);
+        return buffer;
+      } else {
+        console.warn("Direct fetch failed with status:", resp.status);
+      }
+    } catch (directErr) {
+      console.warn("Direct fetch error:", directErr instanceof Error ? directErr.message : String(directErr));
+    }
+
+    // Second attempt: Try to extract storage path and generate a fresh signed URL
+    if (url.includes("supabase.co") && url.includes("/storage/")) {
+      try {
+        console.log("Attempting to generate fresh signed URL for:", fileName);
+        
+        // Try multiple regex patterns to extract the storage path
+        let storagePath = null;
+        
+        // Pattern 1: /storage/v1/object/public/materials/...
+        const match1 = url.match(/\/storage\/v1\/object\/(?:public|private)\/materials\/(.+?)(?:\?|$)/);
+        if (match1) storagePath = "materials/" + match1[1];
+        
+        // Pattern 2: Just the path after /storage/v1/object/
+        if (!storagePath) {
+          const match2 = url.match(/\/storage\/v1\/object\/(?:public|private)\/(.+?)(?:\?|$)/);
+          if (match2) storagePath = match2[1];
+        }
+        
+        if (storagePath) {
+          console.log("Extracted storage path:", storagePath);
+          
+          // Generate a fresh signed URL with extended expiry
+          const { data: signedData, error: signError } = await supabaseAdmin.storage
+            .from("materials")
+            .createSignedUrl(storagePath, 7200); // 2 hour expiry
+          
+          if (signError) {
+            console.error("Signed URL generation error:", signError);
+          } else if (signedData?.signedUrl) {
+            console.log("Generated fresh signed URL, retrying fetch");
+            const retryResp = await fetch(signedData.signedUrl, { timeout: 30000 });
+            if (retryResp.ok) {
+              const buffer = await retryResp.arrayBuffer();
+              console.log("Successfully fetched file via signed URL:", fileName, "size:", buffer.byteLength);
+              return buffer;
+            } else {
+              console.warn("Signed URL fetch failed with status:", retryResp.status);
+            }
+          }
+        }
+      } catch (signErr) {
+        console.error("Signed URL fallback error:", signErr instanceof Error ? signErr.message : String(signErr));
+      }
+    }
+
+    console.error("All fetch attempts failed for file:", fileName);
+    return null;
+  } catch (err) {
+    console.error("File fetch wrapper error:", err);
+    return null;
+  }
+}
+
+// ⚠️ DO NOT CHANGE: PDF extraction using vision model with fallback
+async function extractTextFromPDF(
+  url: string,
+  fileName: string,
+  apiKey: string,
+  supabaseAdmin: any
+): Promise<string> {
+  try {
+    console.log("Extracting PDF:", fileName);
+    
+    const buffer = await fetchFileWithFallback(url, fileName, supabaseAdmin);
+    if (!buffer) {
+      console.error("Failed to fetch PDF buffer for:", fileName);
       return "[PDF file - unable to fetch]";
     }
-    const buffer = await resp.arrayBuffer();
-    if (buffer.byteLength > 15 * 1024 * 1024) {
+    
+    if (buffer.byteLength > 20 * 1024 * 1024) {
       return "[PDF file - too large to process]";
     }
+    
     const base64 = arrayBufferToBase64(buffer);
     const dataUrl = `data:application/pdf;base64,${base64}`;
 
@@ -108,16 +191,41 @@ async function extractTextFromPDF(url: string, apiKey: string): Promise<string> 
 }
 
 // ⚠️ DO NOT CHANGE: Image extraction using vision model
-async function extractTextFromImage(url: string, apiKey: string): Promise<string> {
+async function extractTextFromImage(
+  url: string,
+  fileName: string,
+  apiKey: string,
+  supabaseAdmin: any
+): Promise<string> {
   try {
-    console.log("Extracting image via vision model");
+    console.log("Extracting image:", fileName);
+    
+    // For images, try to use the URL directly first
+    let imageUrl = url;
+    
+    // If it's a Supabase storage URL, try to get a fresh signed URL
+    if (url.includes("supabase.co") && url.includes("/storage/")) {
+      try {
+        const match = url.match(/\/storage\/v1\/object\/(?:public|private)\/(.+?)(?:\?|$)/);
+        if (match) {
+          const storagePath = match[1];
+          const { data: signedData } = await supabaseAdmin.storage
+            .from("materials")
+            .createSignedUrl(storagePath, 3600);
+          if (signedData?.signedUrl) imageUrl = signedData.signedUrl;
+        }
+      } catch (err) {
+        console.warn("Could not generate signed URL for image, using original URL");
+      }
+    }
+    
     const aiResp = await callGateway(apiKey, {
       model: VISION_MODEL,
       messages: [
         {
           role: "user",
           content: [
-            { type: "image_url", image_url: { url } },
+            { type: "image_url", image_url: { url: imageUrl } },
             {
               type: "text",
               text: "Extract and describe all text, diagrams, charts, equations, graphs, and important visual information from this image. Be thorough, detailed, and clear.",
@@ -142,11 +250,20 @@ async function extractTextFromImage(url: string, apiKey: string): Promise<string
 }
 
 // ⚠️ DO NOT CHANGE: Plain text extraction
-async function extractTextFromPlainText(url: string): Promise<string> {
+async function extractTextFromPlainText(
+  url: string,
+  fileName: string,
+  supabaseAdmin: any
+): Promise<string> {
   try {
-    const response = await fetch(url);
-    if (!response.ok) return "[Text file - unable to read]";
-    const text = await response.text();
+    console.log("Extracting plain text:", fileName);
+    
+    const buffer = await fetchFileWithFallback(url, fileName, supabaseAdmin);
+    if (!buffer) {
+      return "[Text file - unable to read]";
+    }
+    
+    const text = new TextDecoder().decode(buffer);
     return text.slice(0, 15000);
   } catch (err) {
     console.error("Text file extraction error:", err);
@@ -158,12 +275,19 @@ async function extractTextFromPlainText(url: string): Promise<string> {
 async function extractTextFromFile(
   url: string,
   fileType: string,
-  apiKey: string
+  fileName: string,
+  apiKey: string,
+  supabaseAdmin: any
 ): Promise<string> {
   try {
-    console.log("Extracting file:", { fileType });
-    if (fileType.startsWith("image/")) return await extractTextFromImage(url, apiKey);
-    if (fileType.includes("pdf")) return await extractTextFromPDF(url, apiKey);
+    console.log("Extracting file:", { fileName, fileType });
+    
+    if (fileType.startsWith("image/")) {
+      return await extractTextFromImage(url, fileName, apiKey, supabaseAdmin);
+    }
+    if (fileType.includes("pdf")) {
+      return await extractTextFromPDF(url, fileName, apiKey, supabaseAdmin);
+    }
     if (
       fileType.includes("text") ||
       fileType.includes("plain") ||
@@ -172,7 +296,7 @@ async function extractTextFromFile(
       fileType.includes("xml") ||
       fileType.includes("csv")
     ) {
-      return await extractTextFromPlainText(url);
+      return await extractTextFromPlainText(url, fileName, supabaseAdmin);
     }
     return "[File type - unable to extract content]";
   } catch (err) {
@@ -327,7 +451,7 @@ Deno.serve(async (req) => {
 
     let messages = await getOrCreateConversation(supabaseAdmin, materialId, userId);
 
-    // Build file context with fresh signed URLs
+    // Build file context with robust fetching
     const files: any[] =
       Array.isArray(material.files) && material.files.length > 0
         ? material.files
@@ -347,33 +471,13 @@ Deno.serve(async (req) => {
     for (const file of files) {
       if (!file.file_url || !file.file_name) continue;
 
-      let accessUrl = file.file_url;
-      
-      // If URL is from Supabase storage, generate a fresh signed URL
-      if (file.file_url.includes("supabase.co") && file.file_url.includes("/storage/")) {
-        try {
-          const pathMatch = file.file_url.match(/\/storage\/v1\/object\/(?:public|private)\/([^?]+)/);
-          if (pathMatch) {
-            const storagePath = pathMatch[1];
-            const { data: signedData } = await supabaseAdmin.storage
-              .from("materials")
-              .createSignedUrl(storagePath, 3600); // 1 hour expiry
-            
-            if (signedData?.signedUrl) {
-              accessUrl = signedData.signedUrl;
-              console.log("Generated fresh signed URL for file:", file.file_name);
-            }
-          }
-        } catch (err) {
-          console.error("Failed to generate signed URL:", err);
-        }
-      }
-
-      console.log("Extracting file:", file.file_name, "type:", file.file_type);
+      console.log("Processing file:", file.file_name, "type:", file.file_type);
       const extractedText = await extractTextFromFile(
-        accessUrl,
+        file.file_url,
         file.file_type || "",
-        lovableApiKey
+        file.file_name,
+        lovableApiKey,
+        supabaseAdmin
       );
       
       // Add clear markers for file content
