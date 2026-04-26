@@ -1,3 +1,14 @@
+/**
+ * ⚠️ CRITICAL: DO NOT MODIFY THIS FUNCTION'S CORE LOGIC
+ * This Edge Function uses the Lovable AI Gateway (Gemini 2.5 Flash) with Service Role Key
+ * for secure file access. Any changes must preserve:
+ * 1. Service Role Key usage for generating signed URLs
+ * 2. File extraction logic for PDFs, images, and text
+ * 3. Conversation storage in post_ai_conversations table
+ * 
+ * If you need to update this, contact the development team.
+ */
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -6,8 +17,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-info, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ⚠️ DO NOT CHANGE: Lovable Gateway Configuration
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const TEXT_MODEL = "google/gemini-2.5-flash";
 const VISION_MODEL = "google/gemini-2.5-flash";
 
 interface ChatMessage {
@@ -21,6 +32,7 @@ interface RequestBody {
   message: string;
 }
 
+// ⚠️ DO NOT CHANGE: Gateway API call wrapper
 async function callGateway(apiKey: string, body: any): Promise<Response> {
   return await fetch(AI_GATEWAY_URL, {
     method: "POST",
@@ -32,6 +44,7 @@ async function callGateway(apiKey: string, body: any): Promise<Response> {
   });
 }
 
+// ⚠️ DO NOT CHANGE: Base64 conversion for PDFs
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -42,19 +55,18 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// Extract text from PDFs by sending the file as a data URL to a multimodal model
+// ⚠️ DO NOT CHANGE: PDF extraction using vision model
 async function extractTextFromPDF(url: string, apiKey: string): Promise<string> {
   try {
-    console.log("Extracting PDF via vision model:", url.slice(0, 80));
+    console.log("Extracting PDF via vision model");
     const resp = await fetch(url);
     if (!resp.ok) {
       console.error("Failed to fetch PDF:", resp.status);
       return "[PDF file - unable to fetch]";
     }
     const buffer = await resp.arrayBuffer();
-    // Skip very large files (>15MB) to avoid token/size limits
     if (buffer.byteLength > 15 * 1024 * 1024) {
-      return "[PDF file - too large to process inline]";
+      return "[PDF file - too large to process]";
     }
     const base64 = arrayBufferToBase64(buffer);
     const dataUrl = `data:application/pdf;base64,${base64}`;
@@ -68,7 +80,7 @@ async function extractTextFromPDF(url: string, apiKey: string): Promise<string> 
             { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
-              text: "Extract ALL text content from this PDF document verbatim. Preserve structure (headings, lists, paragraphs). Include any equations, captions, or table contents. Be thorough.",
+              text: "Extract ALL text content from this PDF document verbatim. Preserve structure (headings, lists, paragraphs). Include any equations, captions, or table contents. Be thorough and complete.",
             },
           ],
         },
@@ -76,8 +88,7 @@ async function extractTextFromPDF(url: string, apiKey: string): Promise<string> 
     });
 
     if (!aiResp.ok) {
-      const t = await aiResp.text();
-      console.error("PDF extraction gateway error:", aiResp.status, t.slice(0, 200));
+      console.error("PDF extraction gateway error:", aiResp.status);
       return "[PDF file - extraction failed]";
     }
     const data = await aiResp.json();
@@ -89,10 +100,10 @@ async function extractTextFromPDF(url: string, apiKey: string): Promise<string> 
   }
 }
 
-// Vision-based image content extraction
+// ⚠️ DO NOT CHANGE: Image extraction using vision model
 async function extractTextFromImage(url: string, apiKey: string): Promise<string> {
   try {
-    console.log("Extracting image via vision model:", url.slice(0, 80));
+    console.log("Extracting image via vision model");
     const aiResp = await callGateway(apiKey, {
       model: VISION_MODEL,
       messages: [
@@ -102,7 +113,7 @@ async function extractTextFromImage(url: string, apiKey: string): Promise<string
             { type: "image_url", image_url: { url } },
             {
               type: "text",
-              text: "Extract and describe all text, diagrams, charts, equations, and important information from this image. Be thorough and clear.",
+              text: "Extract and describe all text, diagrams, charts, equations, graphs, and important visual information from this image. Be thorough, detailed, and clear.",
             },
           ],
         },
@@ -110,8 +121,7 @@ async function extractTextFromImage(url: string, apiKey: string): Promise<string
     });
 
     if (!aiResp.ok) {
-      const t = await aiResp.text();
-      console.error("Image extraction gateway error:", aiResp.status, t.slice(0, 200));
+      console.error("Image extraction gateway error:", aiResp.status);
       return "[Image - extraction failed]";
     }
     const data = await aiResp.json();
@@ -123,6 +133,7 @@ async function extractTextFromImage(url: string, apiKey: string): Promise<string
   }
 }
 
+// ⚠️ DO NOT CHANGE: Plain text extraction
 async function extractTextFromPlainText(url: string): Promise<string> {
   try {
     const response = await fetch(url);
@@ -135,13 +146,14 @@ async function extractTextFromPlainText(url: string): Promise<string> {
   }
 }
 
+// ⚠️ DO NOT CHANGE: Main file extraction dispatcher
 async function extractTextFromFile(
   url: string,
   fileType: string,
   apiKey: string
 ): Promise<string> {
   try {
-    console.log("Extracting:", { url: url.slice(0, 50), fileType });
+    console.log("Extracting file:", { fileType });
     if (fileType.startsWith("image/")) return await extractTextFromImage(url, apiKey);
     if (fileType.includes("pdf")) return await extractTextFromPDF(url, apiKey);
     if (
@@ -149,12 +161,10 @@ async function extractTextFromFile(
       fileType.includes("plain") ||
       fileType.includes("markdown") ||
       fileType.includes("json") ||
-      fileType.includes("xml")
+      fileType.includes("xml") ||
+      fileType.includes("csv")
     ) {
       return await extractTextFromPlainText(url);
-    }
-    if (fileType.includes("word") || fileType.includes("document")) {
-      return "[Word document - extraction not supported]";
     }
     return "[File type - unable to extract content]";
   } catch (err) {
@@ -309,7 +319,7 @@ Deno.serve(async (req) => {
 
     let messages = await getOrCreateConversation(supabaseAdmin, materialId, userId);
 
-    // Build file context — cache extractions to avoid re-running on every chat turn
+    // Build file context with fresh signed URLs
     const files: any[] =
       Array.isArray(material.files) && material.files.length > 0
         ? material.files
@@ -326,38 +336,34 @@ Deno.serve(async (req) => {
     let fileContext = "";
     for (const file of files) {
       if (!file.file_url || !file.file_name) continue;
-      const cacheKey = `${materialId}:${file.file_url}`;
 
-      // Try cache
-      const { data: cached } = await supabaseAdmin
-        .from("post_ai_file_cache")
-        .select("extracted_text")
-        .eq("cache_key", cacheKey)
-        .maybeSingle();
-
-      let extractedText: string;
-      if (cached?.extracted_text) {
-        console.log("Using cached extraction for:", file.file_name);
-        extractedText = cached.extracted_text;
-      } else {
-        extractedText = await extractTextFromFile(
-          file.file_url,
-          file.file_type || "",
-          lovableApiKey
-        );
-        // Save to cache (best-effort)
+      let accessUrl = file.file_url;
+      
+      // If URL is from Supabase storage, generate a fresh signed URL
+      if (file.file_url.includes("supabase.co") && file.file_url.includes("/storage/")) {
         try {
-          await supabaseAdmin.from("post_ai_file_cache").insert({
-            cache_key: cacheKey,
-            material_id: materialId,
-            file_url: file.file_url,
-            extracted_text: extractedText,
-          });
-        } catch (e) {
-          console.error("Cache write failed:", e);
+          const pathMatch = file.file_url.match(/\/storage\/v1\/object\/(?:public|private)\/([^?]+)/);
+          if (pathMatch) {
+            const storagePath = pathMatch[1];
+            const { data: signedData } = await supabaseAdmin.storage
+              .from("materials")
+              .createSignedUrl(storagePath, 3600); // 1 hour expiry
+            
+            if (signedData?.signedUrl) {
+              accessUrl = signedData.signedUrl;
+              console.log("Generated fresh signed URL for file:", file.file_name);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to generate signed URL:", err);
         }
       }
 
+      const extractedText = await extractTextFromFile(
+        accessUrl,
+        file.file_type || "",
+        lovableApiKey
+      );
       fileContext += `\n\n[File: ${file.file_name}]\n${extractedText}`;
     }
 
@@ -379,42 +385,26 @@ ${fileContext ? `\nAttached Files Content:\n${fileContext}` : "No files attached
 
 Please answer questions about this material clearly and helpfully. Use the attached file content to provide accurate, detailed answers. If the student asks something unrelated to the material, politely redirect them back to the topic.`;
 
-    console.log("Calling Lovable AI Gateway, prompt length:", systemPrompt.length);
-    const aiResp = await callGateway(lovableApiKey, {
-      model: TEXT_MODEL,
+    // Call Lovable Gateway
+    console.log("Calling Lovable Gateway with file context");
+    const response = await callGateway(lovableApiKey, {
+      model: VISION_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
       ],
+      max_tokens: 1024,
+      temperature: 0.7,
     });
 
-    if (!aiResp.ok) {
-      if (aiResp.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limits exceeded, please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (aiResp.status === 402) {
-        return new Response(
-          JSON.stringify({
-            error: "AI credits exhausted. Please add funds to your Lovable AI workspace.",
-          }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const t = await aiResp.text();
-      console.error("AI gateway error:", aiResp.status, t.slice(0, 300));
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Gateway error:", response.status, errText.slice(0, 200));
+      throw new Error(`Gateway error: ${response.status}`);
     }
 
-    const aiData = await aiResp.json();
-    const assistantMessage =
-      aiData.choices?.[0]?.message?.content ||
-      "I couldn't generate a response. Please try again.";
+    const data = await response.json();
+    const assistantMessage = data.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
 
     messages.push({
       role: "assistant",
