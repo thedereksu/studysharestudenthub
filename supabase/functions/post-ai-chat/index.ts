@@ -2,7 +2,7 @@
  * ⚠️ CRITICAL: DO NOT MODIFY THIS FUNCTION'S CORE LOGIC
  * This Edge Function uses the Lovable AI Gateway (Gemini 2.5 Flash) with Service Role Key
  * for secure file access. Any changes must preserve:
- * 1. Service Role Key usage for generating signed URLs
+ * 1. Service Role Key usage for DIRECT STORAGE DOWNLOADS
  * 2. File extraction logic for PDFs, images, and text
  * 3. Conversation storage in post_ai_conversations table
  * 
@@ -55,83 +55,60 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// ⚠️ DO NOT CHANGE: Dual-Path file fetcher with fallback
-async function fetchFileWithFallback(
+// ⚠️ DO NOT CHANGE: Direct Storage Downloader
+async function downloadFileFromStorage(
   url: string,
   fileName: string,
   supabaseAdmin: any
 ): Promise<ArrayBuffer | null> {
   try {
-    console.log("Fetching file:", fileName, "from URL:", url.slice(0, 80));
+    console.log("Downloading file directly from storage:", fileName);
     
-    // First attempt: Direct fetch (works for public URLs and signed URLs)
-    try {
-      const resp = await fetch(url, { timeout: 30000 });
-      if (resp.ok) {
-        const buffer = await resp.arrayBuffer();
-        console.log("Successfully fetched file via direct URL:", fileName, "size:", buffer.byteLength);
+    // Extract storage path from URL
+    let storagePath = null;
+    const match = url.match(/\/storage\/v1\/object\/(?:public|private)\/materials\/(.+?)(?:\?|$)/);
+    if (match) {
+      storagePath = match[1];
+    } else {
+      // Fallback: try to find anything after 'materials/'
+      const fallbackMatch = url.match(/materials\/(.+?)(?:\?|$)/);
+      if (fallbackMatch) storagePath = fallbackMatch[1];
+    }
+
+    if (storagePath) {
+      console.log("Extracted storage path for download:", storagePath);
+      const { data, error } = await supabaseAdmin.storage
+        .from("materials")
+        .download(storagePath);
+      
+      if (error) {
+        console.error("Direct download error:", error);
+      } else if (data) {
+        const buffer = await data.arrayBuffer();
+        console.log("Successfully downloaded file directly:", fileName, "size:", buffer.byteLength);
         return buffer;
-      } else {
-        console.warn("Direct fetch failed with status:", resp.status);
-      }
-    } catch (directErr) {
-      console.warn("Direct fetch error:", directErr instanceof Error ? directErr.message : String(directErr));
-    }
-
-    // Second attempt: Try to extract storage path and generate a fresh signed URL
-    if (url.includes("supabase.co") && url.includes("/storage/")) {
-      try {
-        console.log("Attempting to generate fresh signed URL for:", fileName);
-        
-        // Try multiple regex patterns to extract the storage path
-        let storagePath = null;
-        
-        // Pattern 1: /storage/v1/object/public/materials/...
-        const match1 = url.match(/\/storage\/v1\/object\/(?:public|private)\/materials\/(.+?)(?:\?|$)/);
-        if (match1) storagePath = "materials/" + match1[1];
-        
-        // Pattern 2: Just the path after /storage/v1/object/
-        if (!storagePath) {
-          const match2 = url.match(/\/storage\/v1\/object\/(?:public|private)\/(.+?)(?:\?|$)/);
-          if (match2) storagePath = match2[1];
-        }
-        
-        if (storagePath) {
-          console.log("Extracted storage path:", storagePath);
-          
-          // Generate a fresh signed URL with extended expiry
-          const { data: signedData, error: signError } = await supabaseAdmin.storage
-            .from("materials")
-            .createSignedUrl(storagePath, 7200); // 2 hour expiry
-          
-          if (signError) {
-            console.error("Signed URL generation error:", signError);
-          } else if (signedData?.signedUrl) {
-            console.log("Generated fresh signed URL, retrying fetch");
-            const retryResp = await fetch(signedData.signedUrl, { timeout: 30000 });
-            if (retryResp.ok) {
-              const buffer = await retryResp.arrayBuffer();
-              console.log("Successfully fetched file via signed URL:", fileName, "size:", buffer.byteLength);
-              return buffer;
-            } else {
-              console.warn("Signed URL fetch failed with status:", retryResp.status);
-            }
-          }
-        }
-      } catch (signErr) {
-        console.error("Signed URL fallback error:", signErr instanceof Error ? signErr.message : String(signErr));
       }
     }
 
-    console.error("All fetch attempts failed for file:", fileName);
+    // Fallback: Try signed URL fetch if direct download fails
+    console.log("Direct download failed or path not found, trying signed URL fallback");
+    const { data: signedData } = await supabaseAdmin.storage
+      .from("materials")
+      .createSignedUrl(storagePath || fileName, 3600);
+    
+    if (signedData?.signedUrl) {
+      const resp = await fetch(signedData.signedUrl);
+      if (resp.ok) return await resp.arrayBuffer();
+    }
+
     return null;
   } catch (err) {
-    console.error("File fetch wrapper error:", err);
+    console.error("Download wrapper error:", err);
     return null;
   }
 }
 
-// ⚠️ DO NOT CHANGE: PDF extraction using vision model with fallback
+// ⚠️ DO NOT CHANGE: PDF extraction
 async function extractTextFromPDF(
   url: string,
   fileName: string,
@@ -139,17 +116,8 @@ async function extractTextFromPDF(
   supabaseAdmin: any
 ): Promise<string> {
   try {
-    console.log("Extracting PDF:", fileName);
-    
-    const buffer = await fetchFileWithFallback(url, fileName, supabaseAdmin);
-    if (!buffer) {
-      console.error("Failed to fetch PDF buffer for:", fileName);
-      return "[PDF file - unable to fetch]";
-    }
-    
-    if (buffer.byteLength > 20 * 1024 * 1024) {
-      return "[PDF file - too large to process]";
-    }
+    const buffer = await downloadFileFromStorage(url, fileName, supabaseAdmin);
+    if (!buffer) return "[PDF file - unable to fetch]";
     
     const base64 = arrayBufferToBase64(buffer);
     const dataUrl = `data:application/pdf;base64,${base64}`;
@@ -171,26 +139,16 @@ async function extractTextFromPDF(
       max_tokens: 4000,
     });
 
-    if (!aiResp.ok) {
-      console.error("PDF extraction gateway error:", aiResp.status);
-      return "[PDF file - extraction failed]";
-    }
+    if (!aiResp.ok) return "[PDF file - extraction failed]";
     const data = await aiResp.json();
-    const content = data.choices?.[0]?.message?.content;
-    
-    if (!content || content.includes("cannot") || content.includes("unable")) {
-      console.warn("PDF extraction returned error message:", content?.slice(0, 100));
-      return "[PDF file - extraction failed]";
-    }
-    
-    return (content || "[PDF file - no content extracted]").slice(0, 20000);
+    return data.choices?.[0]?.message?.content || "[PDF file - no content extracted]";
   } catch (err) {
     console.error("PDF extraction error:", err);
     return "[PDF file - extraction failed]";
   }
 }
 
-// ⚠️ DO NOT CHANGE: Image extraction using vision model
+// ⚠️ DO NOT CHANGE: Image extraction
 async function extractTextFromImage(
   url: string,
   fileName: string,
@@ -198,34 +156,20 @@ async function extractTextFromImage(
   supabaseAdmin: any
 ): Promise<string> {
   try {
-    console.log("Extracting image:", fileName);
+    const buffer = await downloadFileFromStorage(url, fileName, supabaseAdmin);
+    if (!buffer) return "[Image - unable to fetch]";
     
-    // For images, try to use the URL directly first
-    let imageUrl = url;
-    
-    // If it's a Supabase storage URL, try to get a fresh signed URL
-    if (url.includes("supabase.co") && url.includes("/storage/")) {
-      try {
-        const match = url.match(/\/storage\/v1\/object\/(?:public|private)\/(.+?)(?:\?|$)/);
-        if (match) {
-          const storagePath = match[1];
-          const { data: signedData } = await supabaseAdmin.storage
-            .from("materials")
-            .createSignedUrl(storagePath, 3600);
-          if (signedData?.signedUrl) imageUrl = signedData.signedUrl;
-        }
-      } catch (err) {
-        console.warn("Could not generate signed URL for image, using original URL");
-      }
-    }
-    
+    const base64 = arrayBufferToBase64(buffer);
+    const mimeType = url.includes(".png") ? "image/png" : "image/jpeg";
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+
     const aiResp = await callGateway(apiKey, {
       model: VISION_MODEL,
       messages: [
         {
           role: "user",
           content: [
-            { type: "image_url", image_url: { url: imageUrl } },
+            { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
               text: "Extract and describe all text, diagrams, charts, equations, graphs, and important visual information from this image. Be thorough, detailed, and clear.",
@@ -236,13 +180,9 @@ async function extractTextFromImage(
       max_tokens: 2000,
     });
 
-    if (!aiResp.ok) {
-      console.error("Image extraction gateway error:", aiResp.status);
-      return "[Image - extraction failed]";
-    }
+    if (!aiResp.ok) return "[Image - extraction failed]";
     const data = await aiResp.json();
-    const content = data.choices?.[0]?.message?.content;
-    return content || "[Image - no content extracted]";
+    return data.choices?.[0]?.message?.content || "[Image - no content extracted]";
   } catch (err) {
     console.error("Image OCR error:", err);
     return "[Image - extraction failed]";
@@ -256,15 +196,9 @@ async function extractTextFromPlainText(
   supabaseAdmin: any
 ): Promise<string> {
   try {
-    console.log("Extracting plain text:", fileName);
-    
-    const buffer = await fetchFileWithFallback(url, fileName, supabaseAdmin);
-    if (!buffer) {
-      return "[Text file - unable to read]";
-    }
-    
-    const text = new TextDecoder().decode(buffer);
-    return text.slice(0, 15000);
+    const buffer = await downloadFileFromStorage(url, fileName, supabaseAdmin);
+    if (!buffer) return "[Text file - unable to read]";
+    return new TextDecoder().decode(buffer).slice(0, 15000);
   } catch (err) {
     console.error("Text file extraction error:", err);
     return "[Text file - extraction failed]";
@@ -279,30 +213,12 @@ async function extractTextFromFile(
   apiKey: string,
   supabaseAdmin: any
 ): Promise<string> {
-  try {
-    console.log("Extracting file:", { fileName, fileType });
-    
-    if (fileType.startsWith("image/")) {
-      return await extractTextFromImage(url, fileName, apiKey, supabaseAdmin);
-    }
-    if (fileType.includes("pdf")) {
-      return await extractTextFromPDF(url, fileName, apiKey, supabaseAdmin);
-    }
-    if (
-      fileType.includes("text") ||
-      fileType.includes("plain") ||
-      fileType.includes("markdown") ||
-      fileType.includes("json") ||
-      fileType.includes("xml") ||
-      fileType.includes("csv")
-    ) {
-      return await extractTextFromPlainText(url, fileName, supabaseAdmin);
-    }
-    return "[File type - unable to extract content]";
-  } catch (err) {
-    console.error("File extraction error:", err);
-    return "[File - extraction failed]";
+  if (fileType.startsWith("image/")) return await extractTextFromImage(url, fileName, apiKey, supabaseAdmin);
+  if (fileType.includes("pdf")) return await extractTextFromPDF(url, fileName, apiKey, supabaseAdmin);
+  if (fileType.includes("text") || fileType.includes("plain") || fileType.includes("markdown")) {
+    return await extractTextFromPlainText(url, fileName, supabaseAdmin);
   }
+  return "[File type - unable to extract content]";
 }
 
 async function getOrCreateConversation(
@@ -354,9 +270,7 @@ async function saveConversation(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -364,194 +278,96 @@ Deno.serve(async (req) => {
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!supabaseUrl || !serviceKey || !lovableApiKey) {
-      console.error("Missing environment variables");
-      return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-
     const body = (await req.json()) as RequestBody;
     const { materialId, message } = body;
 
     if (!materialId || !message) {
-      return new Response(
-        JSON.stringify({ error: "materialId and message required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "materialId and message required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Auth
     let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
-      try {
-        const token = authHeader.replace("Bearer ", "");
-        const anonKey =
-          Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-        if (anonKey) {
-          const supabaseAuth = createClient(supabaseUrl, anonKey);
-          const {
-            data: { user },
-          } = await supabaseAuth.auth.getUser(token);
-          userId = user?.id ?? null;
-        }
-      } catch (err) {
-        console.error("Auth error:", err);
-      }
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      userId = user?.id ?? null;
     }
 
     if (!userId) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Fetch material
     const { data: material, error: matError } = await supabaseAdmin
       .from("materials")
-      .select(
-        "id, title, subject, type, description, exchange_type, uploader_id, file_url, file_type, files"
-      )
+      .select("id, title, subject, type, description, exchange_type, uploader_id, file_url, file_type, files")
       .eq("id", materialId)
       .single();
 
     if (matError || !material) {
-      console.error("Material fetch error:", matError);
-      return new Response(JSON.stringify({ error: "Material not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Material not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Check access
+    // Access Check
     const isFree = material.exchange_type === "Free";
     const isOwner = userId === material.uploader_id;
     let hasUnlocked = false;
-
     if (!isOwner && !isFree) {
-      const { data: unlock } = await supabaseAdmin
-        .from("unlocks")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("material_id", materialId)
-        .maybeSingle();
+      const { data: unlock } = await supabaseAdmin.from("unlocks").select("id").eq("user_id", userId).eq("material_id", materialId).maybeSingle();
       hasUnlocked = !!unlock;
     }
 
     if (!(isFree || isOwner || hasUnlocked)) {
-      return new Response(
-        JSON.stringify({ error: "You do not have access to this material" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Access denied" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     let messages = await getOrCreateConversation(supabaseAdmin, materialId, userId);
 
-    // Build file context with robust fetching
-    const files: any[] =
-      Array.isArray(material.files) && material.files.length > 0
-        ? material.files
-        : material.file_url
-        ? [
-            {
-              file_url: material.file_url,
-              file_type: material.file_type,
-              file_name: material.title,
-            },
-          ]
-        : [];
+    // Build file context
+    const files: any[] = Array.isArray(material.files) && material.files.length > 0 ? material.files : material.file_url ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] : [];
 
     let fileContext = "";
-    console.log("Processing", files.length, "files for material:", materialId);
-    
     for (const file of files) {
       if (!file.file_url || !file.file_name) continue;
-
-      console.log("Processing file:", file.file_name, "type:", file.file_type);
-      const extractedText = await extractTextFromFile(
-        file.file_url,
-        file.file_type || "",
-        file.file_name,
-        lovableApiKey,
-        supabaseAdmin
-      );
-      
-      // Add clear markers for file content
-      fileContext += `\n\n═══════════════════════════════════════\n`;
-      fileContext += `FILE: ${file.file_name}\n`;
-      fileContext += `═══════════════════════════════════════\n`;
-      fileContext += `${extractedText}\n`;
-      fileContext += `═══════════════════════════════════════\n`;
+      const extractedText = await extractTextFromFile(file.file_url, file.file_type || "", file.file_name, lovableApiKey, supabaseAdmin);
+      fileContext += `\n\n═══════════════════════════════════════\nFILE: ${file.file_name}\n═══════════════════════════════════════\n${extractedText}\n═══════════════════════════════════════\n`;
     }
 
-    console.log("Total file context length:", fileContext.length);
+    messages.push({ role: "user", content: message, timestamp: new Date().toISOString() });
 
-    messages.push({
-      role: "user",
-      content: message,
-      timestamp: new Date().toISOString(),
-    });
+    const systemPrompt = `You are a helpful AI tutor for a study material sharing platform.
+Material: ${material.title} (${material.subject})
+Description: ${material.description || "N/A"}
 
-    const systemPrompt = `You are a helpful AI tutor assistant for a study material sharing platform.
-You are helping a student understand the following study material:
+${fileContext ? `✓ ATTACHED FILE CONTENT:\n${fileContext}\n\n✓ You HAVE access to the file content above. Use it to answer questions accurately.` : "✗ No files attached."}
 
-Title: ${material.title}
-Subject: ${material.subject}
-Type: ${material.type}
-Description: ${material.description || "No description provided"}
+INSTRUCTIONS:
+1. You CAN read the file content provided above.
+2. Use it to answer questions accurately.
+3. Do NOT say you cannot access files.`;
 
-${fileContext ? `\n✓ ATTACHED FILE CONTENT (provided below):\n${fileContext}\n\n✓ You HAVE access to the file content above. Use it to answer questions accurately.` : "✗ No files attached to this material."}
-
-IMPORTANT INSTRUCTIONS:
-1. You CAN read and interpret the file content provided above.
-2. You MUST use the file content to answer student questions accurately.
-3. If the student asks about the material, refer to the file content provided.
-4. Do NOT say you cannot access files - you have the content above.
-5. Provide detailed, accurate answers based on the material provided.`;
-
-    // Call Lovable Gateway
-    console.log("Calling Lovable Gateway with file context length:", fileContext.length);
     const response = await callGateway(lovableApiKey, {
       model: VISION_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
+      messages: [{ role: "system", content: systemPrompt }, ...messages.map((m) => ({ role: m.role, content: m.content }))],
       max_tokens: 2048,
       temperature: 0.7,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Gateway error:", response.status, errText.slice(0, 200));
-      throw new Error(`Gateway error: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Gateway error: ${response.status}`);
     const data = await response.json();
-    const assistantMessage = data.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
+    const assistantMessage = data.choices?.[0]?.message?.content || "I couldn't generate a response.";
 
-    messages.push({
-      role: "assistant",
-      content: assistantMessage,
-      timestamp: new Date().toISOString(),
-    });
-
+    messages.push({ role: "assistant", content: assistantMessage, timestamp: new Date().toISOString() });
     await saveConversation(supabaseAdmin, materialId, userId, messages);
 
-    return new Response(
-      JSON.stringify({ success: true, message: assistantMessage, conversationId: materialId }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, message: assistantMessage }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("post-ai-chat error:", err);
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    return new Response(
-      JSON.stringify({ error: "Failed to process your request", details: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Failed to process request", details: String(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
