@@ -121,7 +121,7 @@ async function extractTextFromFile(
           ],
         },
       ],
-      max_tokens: 4000,
+      max_tokens: 16000,
     });
 
     if (!aiResp.ok) {
@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
           ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] 
           : [];
       
-      for (const file of files.slice(0, 2)) {
+      for (const file of files) {
         const text = await extractTextFromFile(file.file_url, file.file_type, file.file_name, lovableApiKey, supabaseAdmin);
         fileContent += `\n--- START FILE: ${file.file_name} ---\n${text}\n--- END FILE: ${file.file_name} ---\n`;
       }
@@ -215,7 +215,7 @@ Keep responses concise and well-formatted using markdown.`;
         ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
         { role: "user", content: injectedMessage }
       ],
-      max_tokens: 2048,
+      max_tokens: 4096,
     });
 
     if (!response.ok) {
