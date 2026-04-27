@@ -45,6 +45,7 @@ const PostAIChatSidebar = ({
   // Load conversation history and extract context on first open
   useEffect(() => {
     if (isOpen && !initialized && user) {
+      console.log("[AI Chat] Initializing for material:", materialId);
       loadConversation();
       extractFileContext();
       setInitialized(true);
@@ -70,14 +71,30 @@ const PostAIChatSidebar = ({
 
   const extractFileContext = async () => {
     try {
-      // Fetch material files
+      console.log("[AI Chat] Fetching material context...");
+      
+      // First check cache
+      const { data: cache } = await supabase
+        .from("post_ai_file_cache")
+        .select("extracted_text")
+        .eq("material_id", materialId)
+        .maybeSingle();
+
+      if (cache?.extracted_text) {
+        console.log("[AI Chat] Using cached text context");
+        setExtractedContext(cache.extracted_text);
+        return;
+      }
+
       const { data: material } = await supabase
         .from("materials")
-        .select("files, file_url, file_type, title")
+        .select("files, file_url, file_type, title, description")
         .eq("id", materialId)
         .single();
 
       if (!material) return;
+
+      let context = `Title: ${material.title}\nDescription: ${material.description || "No description provided."}\n`;
 
       const files = Array.isArray(material.files) 
         ? material.files 
@@ -85,31 +102,26 @@ const PostAIChatSidebar = ({
           ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] 
           : [];
 
-      if (files.length === 0) return;
+      console.log("[AI Chat] Files found:", files.length);
 
-      // We'll try to extract text from the first few files to avoid huge payloads
-      let context = "";
-      for (const file of files.slice(0, 2)) {
+      for (const file of files.slice(0, 3)) {
         if (!file.file_url) continue;
-
-        try {
-          // If it's a PDF, we can try to use a basic text fetch if it's public,
-          // but for true PDF parsing we'd need a library. 
-          // For now, we'll pass the URLs to the backend which now has direct storage access,
-          // but we'll also try to fetch metadata or small text files here.
-          if (file.file_type?.includes("text") || file.file_type?.includes("plain")) {
+        
+        // We only attempt frontend extraction for small text-based files
+        if (file.file_type?.includes("text") || file.file_type?.includes("plain") || file.file_name?.endsWith(".txt")) {
+          try {
             const response = await fetch(file.file_url);
             if (response.ok) {
               const text = await response.text();
-              context += `\n[Content from ${file.file_name}]:\n${text.slice(0, 5000)}\n`;
+              context += `\n--- Content from ${file.file_name} ---\n${text.slice(0, 3000)}\n`;
             }
+          } catch (e) {
+            console.warn("[AI Chat] Could not fetch file text on frontend:", file.file_name);
           }
-        } catch (e) {
-          console.warn("Frontend extraction failed for", file.file_name, e);
         }
       }
 
-      if (context) setExtractedContext(context);
+      setExtractedContext(context);
     } catch (err) {
       console.error("Context extraction error:", err);
     }
@@ -123,39 +135,49 @@ const PostAIChatSidebar = ({
     setInput("");
     setLoading(true);
 
+    const newUserMessage: ChatMessage = {
+      role: "user",
+      content: userMessage,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, newUserMessage]);
+
     try {
+      console.log("[AI Chat] Invoking Edge Function...");
       const { data, error } = await supabase.functions.invoke("post-ai-chat", {
         body: {
           materialId,
           message: userMessage,
-          frontendContext: extractedContext, // Pass any text we found on frontend
+          frontendContext: extractedContext,
+          history: messages.slice(-6), // Send last 3 turns for context
         },
       });
 
-      if (error) {
-        throw new Error(error.message || "Failed to get AI response");
-      }
+      if (error) throw error;
 
       if (data?.success) {
-        // Add user message
-        const newUserMessage: ChatMessage = {
-          role: "user",
-          content: userMessage,
-          timestamp: new Date().toISOString(),
-        };
-
-        // Add assistant message
         const newAssistantMessage: ChatMessage = {
           role: "assistant",
           content: data.message,
           timestamp: new Date().toISOString(),
         };
 
-        setMessages((prev) => [...prev, newUserMessage, newAssistantMessage]);
+        const updatedMessages = [...messages, newUserMessage, newAssistantMessage];
+        setMessages(updatedMessages);
+
+        // Save conversation history
+        await supabase.from("post_ai_conversations").upsert({
+          material_id: materialId,
+          user_id: user.id,
+          messages: updatedMessages as any,
+          updated_at: new Date().toISOString(),
+        });
       } else {
-        throw new Error(data?.error || "Unknown error");
+        throw new Error(data?.error || "Failed to get AI response");
       }
     } catch (err: any) {
+      console.error("[AI Chat] Chat error:", err);
       toast({
         title: "Error",
         description: sanitizeError(err),
@@ -170,100 +192,73 @@ const PostAIChatSidebar = ({
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/20"
-        onClick={onClose}
-      />
-
-      {/* Sidebar */}
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-sm bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96">
-        {/* Header */}
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Sparkles className="w-5 h-5 text-primary shrink-0" />
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground truncate">
-                Study Assistant
-              </h2>
-              <p className="text-xs text-muted-foreground truncate">
-                {materialTitle}
-              </p>
+              <h2 className="text-sm font-semibold text-foreground">Study Assistant</h2>
+              <p className="text-xs text-muted-foreground truncate">{materialTitle}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-muted transition-colors"
-          >
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors">
             <X className="w-5 h-5 text-foreground" />
           </button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <Sparkles className="w-8 h-8 text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-full text-center p-4">
+              <Sparkles className="w-8 h-8 text-primary/30 mb-2" />
+              <p className="text-sm text-muted-foreground font-medium">
                 Ask me anything about this material!
+              </p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                I can summarize the content or help you understand complex topics.
               </p>
             </div>
           ) : (
             <>
               {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex gap-2 ${
-                    msg.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-xs rounded-lg px-3 py-2 text-sm ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    }`}
-                  >
+                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                    msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none"
+                  }`}>
                     {msg.content}
                   </div>
                 </div>
               ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-muted text-foreground rounded-2xl rounded-tl-none px-4 py-2 text-sm shadow-sm flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Thinking...</span>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </>
           )}
         </div>
 
-        {/* Input */}
-        <form
-          onSubmit={handleSendMessage}
-          className="border-t border-border p-4 space-y-3"
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question..."
-            disabled={loading}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-          />
-          <Button
-            type="submit"
-            disabled={loading || !input.trim()}
-            size="sm"
-            className="w-full"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Thinking...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 mr-2" />
-                Send
-              </>
-            )}
-          </Button>
+        <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-background">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question..."
+              disabled={loading}
+              className="flex-1 px-4 py-2 rounded-full border border-border bg-muted/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+            />
+            <Button type="submit" disabled={loading || !input.trim()} size="icon" className="rounded-full shrink-0">
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground/50 mt-2 text-center">
+            AI can make mistakes. Verify important info.
+          </p>
         </form>
       </div>
     </div>

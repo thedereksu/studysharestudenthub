@@ -28,6 +28,7 @@ interface RequestBody {
   materialId: string;
   message: string;
   frontendContext?: string;
+  history?: any[];
 }
 
 async function callGateway(apiKey: string, body: any): Promise<Response> {
@@ -57,28 +58,40 @@ async function downloadFileFromStorage(
   supabaseAdmin: any
 ): Promise<ArrayBuffer | null> {
   try {
-    console.log("Downloading file directly from storage:", fileName);
+    console.log(`[AI Chat] Downloading: ${fileName}`);
+    
+    // Improved path extraction for various URL formats
     let storagePath = null;
-    const match = url.match(/\/storage\/v1\/object\/(?:public|private)\/materials\/(.+?)(?:\?|$)/);
-    if (match) {
-      storagePath = match[1];
-    } else {
-      const fallbackMatch = url.match(/materials\/(.+?)(?:\?|$)/);
-      if (fallbackMatch) storagePath = fallbackMatch[1];
+    try {
+      const urlObj = new URL(url);
+      const parts = urlObj.pathname.split("/material-files/");
+      if (parts.length > 1) {
+        storagePath = decodeURIComponent(parts[1]);
+      } else {
+        // Fallback for direct bucket paths
+        const matFilesMatch = urlObj.pathname.match(/material-files\/(.+)$/);
+        if (matFilesMatch) storagePath = decodeURIComponent(matFilesMatch[1]);
+      }
+    } catch (e) {
+      // Not a URL, maybe it's already a path
+      storagePath = url;
     }
 
     if (storagePath) {
+      console.log(`[AI Chat] Extracted storage path: ${storagePath}`);
       const { data, error } = await supabaseAdmin.storage
-        .from("materials")
+        .from("material-files")
         .download(storagePath);
       
       if (!error && data) {
         return await data.arrayBuffer();
+      } else {
+        console.error(`[AI Chat] Download error for ${storagePath}:`, error);
       }
     }
     return null;
   } catch (err) {
-    console.error("Download error:", err);
+    console.error(`[AI Chat] Download exception:`, err);
     return null;
   }
 }
@@ -95,10 +108,10 @@ async function extractTextFromFile(
     if (!buffer) return `[File: ${fileName} - content unavailable]`;
 
     const base64 = arrayBufferToBase64(buffer);
-    const mimeType = fileType || (url.includes(".pdf") ? "application/pdf" : "image/jpeg");
+    const mimeType = fileType || (fileName.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
     const dataUrl = `data:${mimeType};base64,${base64}`;
 
-    // We send the file to the vision model to extract text/content
+    console.log(`[AI Chat] Calling Vision API for ${fileName}...`);
     const aiResp = await callGateway(apiKey, {
       model: VISION_MODEL,
       messages: [
@@ -108,7 +121,7 @@ async function extractTextFromFile(
             { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
-              text: "You are a document extractor. Extract ALL text content from this file verbatim. If it's a PDF, read every page. If it's an image, describe everything and perform OCR. Return ONLY the extracted text content.",
+              text: "You are a document extractor. Extract ALL text content from this file verbatim. If it's a PDF, read every page. If it's an image, describe everything and perform OCR. Return ONLY the extracted text content. If no text is found, describe the visual content.",
             },
           ],
         },
@@ -116,51 +129,17 @@ async function extractTextFromFile(
       max_tokens: 4000,
     });
 
-    if (!aiResp.ok) return `[File: ${fileName} - extraction failed]`;
+    if (!aiResp.ok) {
+      const errText = await aiResp.text();
+      console.error(`[AI Chat] Vision API error: ${errText}`);
+      return `[File: ${fileName} - extraction failed]`;
+    }
+    
     const data = await aiResp.json();
     return data.choices?.[0]?.message?.content || `[File: ${fileName} - no content extracted]`;
   } catch (err) {
-    console.error("Extraction error:", err);
+    console.error(`[AI Chat] Extraction exception:`, err);
     return `[File: ${fileName} - error processing]`;
-  }
-}
-
-async function getOrCreateConversation(
-  supabaseAdmin: any,
-  materialId: string,
-  userId: string
-): Promise<ChatMessage[]> {
-  const { data } = await supabaseAdmin
-    .from("post_ai_conversations")
-    .select("messages")
-    .eq("material_id", materialId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  return (data?.messages as ChatMessage[]) || [];
-}
-
-async function saveConversation(
-  supabaseAdmin: any,
-  materialId: string,
-  userId: string,
-  messages: ChatMessage[]
-): Promise<void> {
-  const { data: existing } = await supabaseAdmin
-    .from("post_ai_conversations")
-    .select("id")
-    .eq("material_id", materialId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (existing) {
-    await supabaseAdmin
-      .from("post_ai_conversations")
-      .update({ messages, updated_at: new Date().toISOString() })
-      .eq("id", existing.id);
-  } else {
-    await supabaseAdmin
-      .from("post_ai_conversations")
-      .insert({ material_id: materialId, user_id: userId, messages });
   }
 }
 
@@ -173,12 +152,12 @@ Deno.serve(async (req) => {
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!supabaseUrl || !serviceKey || !lovableApiKey) {
-      return new Response(JSON.stringify({ error: "Config error" }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Configuration missing" }), { status: 500, headers: corsHeaders });
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     const body = await req.json() as RequestBody;
-    const { materialId, message, frontendContext } = body;
+    const { materialId, message, frontendContext, history } = body;
 
     // Auth
     let userId: string | null = null;
@@ -191,65 +170,76 @@ Deno.serve(async (req) => {
 
     if (!userId) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
+    // Get Material
     const { data: material } = await supabaseAdmin
       .from("materials")
       .select("*")
       .eq("id", materialId)
       .single();
 
-    if (!material) return new Response(JSON.stringify({ error: "Not found" }), { status: 404, headers: corsHeaders });
+    if (!material) return new Response(JSON.stringify({ error: "Material not found" }), { status: 404, headers: corsHeaders });
 
-    let messages = await getOrCreateConversation(supabaseAdmin, materialId, userId);
-
-    // Build file context
+    // 1. Context Collection
     let fileContent = frontendContext || "";
     
-    // If frontend didn't provide enough context, try backend extraction
-    if (fileContent.length < 100) {
-      const files = Array.isArray(material.files) ? material.files : material.file_url ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] : [];
+    // If context is short, attempt backend extraction
+    if (fileContent.length < 200) {
+      console.log(`[AI Chat] Insufficient context, attempting backend extraction...`);
+      const files = Array.isArray(material.files) 
+        ? material.files 
+        : material.file_url 
+          ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] 
+          : [];
       
-      for (const file of files) {
+      for (const file of files.slice(0, 2)) {
         const text = await extractTextFromFile(file.file_url, file.file_type, file.file_name, lovableApiKey, supabaseAdmin);
         fileContent += `\n--- START FILE: ${file.file_name} ---\n${text}\n--- END FILE: ${file.file_name} ---\n`;
       }
     }
 
-    // DIRECT MESSAGE INJECTION
+    // 2. Direct Message Injection
     const injectedMessage = `CONTEXT FROM ATTACHED MATERIALS:
-${fileContent || "No files attached."}
+${fileContent || "No detailed file content available."}
 
 USER QUESTION:
 ${message}
 
-(Note to AI: You HAVE the file content above. Use it to answer. Do not say you cannot read the files.)`;
+(System Note: You have the content above. Use it to answer. Do not say you cannot read the files.)`;
 
     const systemPrompt = `You are a helpful AI tutor for the material: "${material.title}".
+The user is asking questions about study material they uploaded. 
 You have been provided with the actual text content of the material directly in the user's message context.
 Use this content to provide detailed, accurate, and helpful summaries or answers.
-If the content is missing or shows an error, politely inform the user, but prioritize the provided context.`;
+Keep responses concise and well-formatted using markdown.`;
 
+    // 3. AI Call
     const response = await callGateway(lovableApiKey, {
       model: VISION_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
-        ...messages.map(m => ({ role: m.role, content: m.content })),
+        ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
         { role: "user", content: injectedMessage }
       ],
       max_tokens: 2048,
     });
 
-    if (!response.ok) throw new Error("Gateway error");
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`AI Gateway Error: ${err}`);
+    }
+    
     const data = await response.json();
-    const assistantMessage = data.choices?.[0]?.message?.content || "No response generated.";
+    const assistantMessage = data.choices?.[0]?.message?.content || "I couldn't generate a response.";
 
-    // Save history
-    messages.push({ role: "user", content: message, timestamp: new Date().toISOString() });
-    messages.push({ role: "assistant", content: assistantMessage, timestamp: new Date().toISOString() });
-    await saveConversation(supabaseAdmin, materialId, userId, messages);
+    return new Response(JSON.stringify({ success: true, message: assistantMessage }), { 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
 
-    return new Response(JSON.stringify({ success: true, message: assistantMessage }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    console.error(err);
-    return new Response(JSON.stringify({ error: "Error", details: String(err) }), { status: 500, headers: corsHeaders });
+    console.error("[AI Chat] Critical Error:", err);
+    return new Response(JSON.stringify({ success: false, error: String(err) }), { 
+      status: 500, 
+      headers: corsHeaders 
+    });
   }
 });

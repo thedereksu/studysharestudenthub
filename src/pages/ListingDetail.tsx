@@ -505,7 +505,7 @@ const ListingDetail = () => {
     </div>
 
     {/* AI Chat Bubble and Sidebar */}
-    {user && material && (
+    {material && (
       <div className="relative z-50">
         <PostAIChatBubble onClick={() => setAiChatOpen(true)} />
         <PostAIChatSidebar
