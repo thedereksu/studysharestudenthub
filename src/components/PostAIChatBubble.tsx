@@ -8,7 +8,8 @@ const PostAIChatBubble = ({ onClick }: PostAIChatBubbleProps) => {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-20 right-6 z-50 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-2xl hover:shadow-2xl hover:scale-125 transition-all duration-200 flex items-center justify-center group border-2 border-primary-foreground/20"
+      style={{ bottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}
+      className="fixed right-6 z-50 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-2xl hover:shadow-2xl hover:scale-125 transition-all duration-200 flex items-center justify-center group border-2 border-primary-foreground/20"
       title="Ask AI about this material"
     >
       <Sparkles className="w-7 h-7" />
