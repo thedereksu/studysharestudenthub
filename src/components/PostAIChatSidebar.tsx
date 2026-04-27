@@ -104,7 +104,8 @@ const PostAIChatSidebar = ({
 
       console.log("[AI Chat] Files found:", files.length);
 
-      for (const file of files.slice(0, 3)) {
+      for (const f of files.slice(0, 3)) {
+        const file: any = f;
         if (!file.file_url) continue;
         
         // We only attempt frontend extraction for small text-based files
