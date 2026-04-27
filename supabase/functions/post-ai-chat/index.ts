@@ -116,12 +116,12 @@ async function extractTextFromFile(
             { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
-              text: "You are a document extractor. Extract ALL text content from this file verbatim. If it's a PDF, read every page. If it's an image, describe everything and perform OCR. Return ONLY the extracted text content. If no text is found, describe the visual content.",
+              text: "You are a document extractor. Extract ALL text content from this file VERBATIM and IN FULL. Process EVERY SINGLE PAGE or SLIDE from beginning to end — do not stop early, do not summarize, do not skip pages. For each page/slide, prefix with '=== Page/Slide N ===' and include all text, bullet points, captions, diagrams, tables, and image descriptions. If it's an image, perform full OCR and describe all visuals. Return ONLY the extracted content.",
             },
           ],
         },
       ],
-      max_tokens: 4000,
+      max_tokens: 16000,
     });
 
     if (!aiResp.ok) {
@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
           ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] 
           : [];
       
-      for (const file of files.slice(0, 2)) {
+      for (const file of files) {
         const text = await extractTextFromFile(file.file_url, file.file_type, file.file_name, lovableApiKey, supabaseAdmin);
         fileContent += `\n--- START FILE: ${file.file_name} ---\n${text}\n--- END FILE: ${file.file_name} ---\n`;
       }
@@ -215,7 +215,7 @@ Keep responses concise and well-formatted using markdown.`;
         ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
         { role: "user", content: injectedMessage }
       ],
-      max_tokens: 2048,
+      max_tokens: 4096,
     });
 
     if (!response.ok) {
