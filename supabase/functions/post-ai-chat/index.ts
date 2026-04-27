@@ -116,7 +116,7 @@ async function extractTextFromFile(
             { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
-              text: "You are a document extractor. Extract ALL text content from this file verbatim. If it's a PDF, read every page. If it's an image, describe everything and perform OCR. Return ONLY the extracted text content. If no text is found, describe the visual content.",
+              text: "You are a document extractor. Extract ALL text content from this file VERBATIM and IN FULL. Process EVERY SINGLE PAGE or SLIDE from beginning to end — do not stop early, do not summarize, do not skip pages. For each page/slide, prefix with '=== Page/Slide N ===' and include all text, bullet points, captions, diagrams, tables, and image descriptions. If it's an image, perform full OCR and describe all visuals. Return ONLY the extracted content.",
             },
           ],
         },
