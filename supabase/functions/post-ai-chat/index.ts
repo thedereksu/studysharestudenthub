@@ -52,6 +52,17 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+function extractStoragePath(url: string): string | null {
+  if (!url) return null;
+  if (!url.startsWith("http")) return url;
+  // Match /storage/v1/object/(public|sign|authenticated)/materials/<path>
+  const match = url.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/materials\/(.+?)(?:\?.*)?$/);
+  if (match) return decodeURIComponent(match[1]);
+  // Fallback: anything after /materials/
+  const fallback = url.match(/\/materials\/(.+?)(?:\?.*)?$/);
+  return fallback ? decodeURIComponent(fallback[1]) : null;
+}
+
 async function downloadFileFromStorage(
   url: string,
   fileName: string,
@@ -59,37 +70,21 @@ async function downloadFileFromStorage(
 ): Promise<ArrayBuffer | null> {
   try {
     console.log(`[AI Chat] Downloading: ${fileName}`);
-    
-    // Improved path extraction for various URL formats
-    let storagePath = null;
-    try {
-      const urlObj = new URL(url);
-      const parts = urlObj.pathname.split("/material-files/");
-      if (parts.length > 1) {
-        storagePath = decodeURIComponent(parts[1]);
-      } else {
-        // Fallback for direct bucket paths
-        const matFilesMatch = urlObj.pathname.match(/material-files\/(.+)$/);
-        if (matFilesMatch) storagePath = decodeURIComponent(matFilesMatch[1]);
-      }
-    } catch (e) {
-      // Not a URL, maybe it's already a path
-      storagePath = url;
+    const storagePath = extractStoragePath(url);
+    if (!storagePath) {
+      console.error(`[AI Chat] Could not extract storage path from: ${url}`);
+      return null;
     }
+    console.log(`[AI Chat] Extracted storage path: ${storagePath}`);
+    const { data, error } = await supabaseAdmin.storage
+      .from("materials")
+      .download(storagePath);
 
-    if (storagePath) {
-      console.log(`[AI Chat] Extracted storage path: ${storagePath}`);
-      const { data, error } = await supabaseAdmin.storage
-        .from("material-files")
-        .download(storagePath);
-      
-      if (!error && data) {
-        return await data.arrayBuffer();
-      } else {
-        console.error(`[AI Chat] Download error for ${storagePath}:`, error);
-      }
+    if (error || !data) {
+      console.error(`[AI Chat] Download error for ${storagePath}:`, error);
+      return null;
     }
-    return null;
+    return await data.arrayBuffer();
   } catch (err) {
     console.error(`[AI Chat] Download exception:`, err);
     return null;
