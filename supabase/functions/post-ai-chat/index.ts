@@ -27,6 +27,7 @@ interface ChatMessage {
 interface RequestBody {
   materialId: string;
   message: string;
+  frontendContext?: string;
 }
 
 async function callGateway(apiKey: string, body: any): Promise<Response> {
@@ -97,6 +98,7 @@ async function extractTextFromFile(
     const mimeType = fileType || (url.includes(".pdf") ? "application/pdf" : "image/jpeg");
     const dataUrl = `data:${mimeType};base64,${base64}`;
 
+    // We send the file to the vision model to extract text/content
     const aiResp = await callGateway(apiKey, {
       model: VISION_MODEL,
       messages: [
@@ -106,7 +108,7 @@ async function extractTextFromFile(
             { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
-              text: "Extract ALL text and visual information from this file. Be extremely thorough. If it's a PDF, extract all text. If it's an image, describe it in detail and perform OCR. Return only the extracted content.",
+              text: "You are a document extractor. Extract ALL text content from this file verbatim. If it's a PDF, read every page. If it's an image, describe everything and perform OCR. Return ONLY the extracted text content.",
             },
           ],
         },
@@ -175,8 +177,8 @@ Deno.serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-    const body = await req.json();
-    const { materialId, message } = body;
+    const body = await req.json() as RequestBody;
+    const { materialId, message, frontendContext } = body;
 
     // Auth
     let userId: string | null = null;
@@ -199,26 +201,32 @@ Deno.serve(async (req) => {
 
     let messages = await getOrCreateConversation(supabaseAdmin, materialId, userId);
 
-    // Extract file content
-    const files = Array.isArray(material.files) ? material.files : material.file_url ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] : [];
+    // Build file context
+    let fileContent = frontendContext || "";
     
-    let fileContent = "";
-    for (const file of files) {
-      const text = await extractTextFromFile(file.file_url, file.file_type, file.file_name, lovableApiKey, supabaseAdmin);
-      fileContent += `\n--- START FILE: ${file.file_name} ---\n${text}\n--- END FILE: ${file.file_name} ---\n`;
+    // If frontend didn't provide enough context, try backend extraction
+    if (fileContent.length < 100) {
+      const files = Array.isArray(material.files) ? material.files : material.file_url ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] : [];
+      
+      for (const file of files) {
+        const text = await extractTextFromFile(file.file_url, file.file_type, file.file_name, lovableApiKey, supabaseAdmin);
+        fileContent += `\n--- START FILE: ${file.file_name} ---\n${text}\n--- END FILE: ${file.file_name} ---\n`;
+      }
     }
 
-    // DIRECT MESSAGE INJECTION:
-    // We wrap the user's message with the file content so the AI MUST see it.
+    // DIRECT MESSAGE INJECTION
     const injectedMessage = `CONTEXT FROM ATTACHED MATERIALS:
 ${fileContent || "No files attached."}
 
 USER QUESTION:
 ${message}
 
-(Note to AI: You HAVE the file content above. Do not say you cannot read the files.)`;
+(Note to AI: You HAVE the file content above. Use it to answer. Do not say you cannot read the files.)`;
 
-    const systemPrompt = "You are a helpful AI tutor. You have been provided with the content of the student's study materials directly in their message. Use this content to answer their questions accurately and clearly.";
+    const systemPrompt = `You are a helpful AI tutor for the material: "${material.title}".
+You have been provided with the actual text content of the material directly in the user's message context.
+Use this content to provide detailed, accurate, and helpful summaries or answers.
+If the content is missing or shows an error, politely inform the user, but prioritize the provided context.`;
 
     const response = await callGateway(lovableApiKey, {
       model: VISION_MODEL,
@@ -234,7 +242,7 @@ ${message}
     const data = await response.json();
     const assistantMessage = data.choices?.[0]?.message?.content || "No response generated.";
 
-    // Save the original user message, but the AI's response
+    // Save history
     messages.push({ role: "user", content: message, timestamp: new Date().toISOString() });
     messages.push({ role: "assistant", content: assistantMessage, timestamp: new Date().toISOString() });
     await saveConversation(supabaseAdmin, materialId, userId, messages);

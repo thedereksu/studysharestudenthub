@@ -31,6 +31,7 @@ const PostAIChatSidebar = ({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [extractedContext, setExtractedContext] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -41,10 +42,11 @@ const PostAIChatSidebar = ({
     scrollToBottom();
   }, [messages]);
 
-  // Load conversation history on first open
+  // Load conversation history and extract context on first open
   useEffect(() => {
     if (isOpen && !initialized && user) {
       loadConversation();
+      extractFileContext();
       setInitialized(true);
     }
   }, [isOpen, initialized, user]);
@@ -66,6 +68,53 @@ const PostAIChatSidebar = ({
     }
   };
 
+  const extractFileContext = async () => {
+    try {
+      // Fetch material files
+      const { data: material } = await supabase
+        .from("materials")
+        .select("files, file_url, file_type, title")
+        .eq("id", materialId)
+        .single();
+
+      if (!material) return;
+
+      const files = Array.isArray(material.files) 
+        ? material.files 
+        : material.file_url 
+          ? [{ file_url: material.file_url, file_type: material.file_type, file_name: material.title }] 
+          : [];
+
+      if (files.length === 0) return;
+
+      // We'll try to extract text from the first few files to avoid huge payloads
+      let context = "";
+      for (const file of files.slice(0, 2)) {
+        if (!file.file_url) continue;
+
+        try {
+          // If it's a PDF, we can try to use a basic text fetch if it's public,
+          // but for true PDF parsing we'd need a library. 
+          // For now, we'll pass the URLs to the backend which now has direct storage access,
+          // but we'll also try to fetch metadata or small text files here.
+          if (file.file_type?.includes("text") || file.file_type?.includes("plain")) {
+            const response = await fetch(file.file_url);
+            if (response.ok) {
+              const text = await response.text();
+              context += `\n[Content from ${file.file_name}]:\n${text.slice(0, 5000)}\n`;
+            }
+          }
+        } catch (e) {
+          console.warn("Frontend extraction failed for", file.file_name, e);
+        }
+      }
+
+      if (context) setExtractedContext(context);
+    } catch (err) {
+      console.error("Context extraction error:", err);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !user) return;
@@ -79,6 +128,7 @@ const PostAIChatSidebar = ({
         body: {
           materialId,
           message: userMessage,
+          frontendContext: extractedContext, // Pass any text we found on frontend
         },
       });
 
