@@ -15,7 +15,6 @@ const AppLayout = () => {
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
-    { icon: Search, label: "Search", path: "/search" },
     { icon: PlusCircle, label: "Post", path: "/create" },
     { icon: MessageCircle, label: "Messages", path: "/messages", badge: totalUnread },
     { icon: User, label: "Profile", path: "/profile" },
