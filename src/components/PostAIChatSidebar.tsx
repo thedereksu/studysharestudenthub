@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Send, Loader2, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -226,7 +227,13 @@ const PostAIChatSidebar = ({
                   <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                     msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none"
                   }`}>
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none [&>*]:my-1 [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>li]:my-0 [&>strong]:font-bold [&>em]:italic [&>code]:bg-black/20 [&>code]:px-1 [&>code]:rounded">
+                        {msg.content}
+                      </ReactMarkdown>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
