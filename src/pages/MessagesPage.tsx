@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import EmptyState from "@/components/EmptyState";
 
 interface ConversationWithProfile {
   id: string;
@@ -67,10 +68,12 @@ const MessagesPage = () => {
       {loading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">Loading...</div>
       ) : conversations.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">
-          <MessageCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-          No messages yet. Start a conversation by tapping a username on a listing.
-        </div>
+        <EmptyState
+          icon={MessageCircle}
+          title="No messages yet"
+          description="Start a conversation by tapping a username on a listing."
+          iconColor="text-primary/30"
+        />
       ) : (
         <div className="space-y-2 pb-6">
           {conversations.map((c) => (

@@ -10,6 +10,7 @@ import { sanitizeError } from "@/lib/errors";
 import ListingCard from "@/components/ListingCard";
 import ContributorBadge from "@/components/ContributorBadge";
 import NotificationPreferences from "@/components/NotificationPreferences";
+import EmptyState from "@/components/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import type { Material, Profile, MaterialRequest } from "@/lib/types";
 
@@ -306,10 +307,14 @@ const ProfilePage = () => {
       </div>
 
       {materials.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground text-sm">
-          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-          No materials uploaded yet. Click "Post" to add your notes or study guides.
-        </div>
+        <EmptyState
+          icon={Upload}
+          title="No materials uploaded yet"
+          description="Click 'Post' to add your notes or study guides."
+          actionLabel="Post Now"
+          onAction={() => navigate("/create")}
+          iconColor="text-primary/30"
+        />
       ) : (
         <div className="space-y-3 pb-6">
           {materials.map((material) => (

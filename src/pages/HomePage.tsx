@@ -3,6 +3,7 @@ import { Search, SlidersHorizontal, Upload, HelpCircle, RefreshCcw, X } from "lu
 import { useNavigate } from "react-router-dom";
 import ListingCard from "@/components/ListingCard";
 import RequestCard from "@/components/RequestCard";
+import EmptyState from "@/components/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import { subjects, materialTypes, exchangeTypes } from "@/lib/types";
 import type { Material, MaterialRequest } from "@/lib/types";
@@ -315,9 +316,13 @@ const HomePage = () => {
               {loading ? (
                 <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">Loading...</div>
               ) : filtered.length === 0 && (activeSubject !== "All" || filteredRequests.length === 0) ? (
-                <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-                  No matching materials found.
+                <div className="col-span-2">
+                  <EmptyState
+                    icon={Upload}
+                    title="No matching materials found"
+                    description="Try adjusting your filters or search terms to find study materials."
+                    iconColor="text-primary/30"
+                  />
                 </div>
               ) : (
                 filtered.map((material) => (
