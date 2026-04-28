@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Send, Loader2, Sparkles } from "lucide-react";
+import { X, Send, Loader2, Sparkles, Maximize2, Minimize2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,7 @@ const PostAIChatSidebar = ({
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [extractedContext, setExtractedContext] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -195,7 +196,9 @@ const PostAIChatSidebar = ({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className="relative ml-auto w-full max-w-sm bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96">
+      <div className={`relative ml-auto w-full bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96 transition-all duration-300 ${
+        isExpanded ? "max-w-4xl" : "max-w-sm"
+      }`}>
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Sparkles className="w-5 h-5 text-primary shrink-0" />
@@ -204,9 +207,22 @@ const PostAIChatSidebar = ({
               <p className="text-xs text-muted-foreground truncate">{materialTitle}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors">
-            <X className="w-5 h-5 text-foreground" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setIsExpanded(!isExpanded)} 
+              className="p-1.5 rounded-full hover:bg-muted transition-colors"
+              title={isExpanded ? "Collapse" : "Expand"}
+            >
+              {isExpanded ? (
+                <Minimize2 className="w-5 h-5 text-foreground" />
+              ) : (
+                <Maximize2 className="w-5 h-5 text-foreground" />
+              )}
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors">
+              <X className="w-5 h-5 text-foreground" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
