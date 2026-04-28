@@ -145,153 +145,220 @@ const HomePage = () => {
     setActiveExchange("All");
   };
 
-  return (
-    <div className="max-w-lg mx-auto px-4">
-      <div className="pt-6 pb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-serif font-bold text-foreground">StudySwap</h1>
-          <p className="text-xs text-muted-foreground">Share knowledge, grow together</p>
-        </div>
-        {user && (
-          <Button variant="outline" size="sm" onClick={() => navigate("/request")}>
-            <HelpCircle className="w-4 h-4 mr-1" /> Request
-          </Button>
-        )}
-      </div>
+  const renderFilterContent = () => (
+    <>
+      <FilterSection 
+        label="Subject" 
+        options={subjects} 
+        active={activeSubject} 
+        onSelect={setActiveSubject} 
+      />
+      <FilterSection 
+        label="Material Type" 
+        options={materialTypes} 
+        active={activeType} 
+        onSelect={setActiveType} 
+      />
+      <FilterSection 
+        label="Exchange Type" 
+        options={exchangeTypes} 
+        active={activeExchange} 
+        onSelect={setActiveExchange} 
+      />
+    </>
+  );
 
-      <div className="relative mb-4 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search notes, guides, subjects..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-card border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-        
-        <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="relative px-3">
-              <SlidersHorizontal className="w-4 h-4" />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-[80vh] rounded-t-2xl px-6">
-            <SheetHeader className="text-left mb-6">
-              <div className="flex items-center justify-between">
-                <SheetTitle className="text-xl">Filters</SheetTitle>
+  return (
+    <div className="w-full">
+      {/* Container with responsive max-width for desktop */}
+      <div className="mx-auto px-4 lg:px-6 max-w-7xl">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
+          {/* Left Sidebar - Desktop Only */}
+          <div className="hidden lg:block lg:col-span-1">
+            <div className="sticky top-20 bg-card rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-foreground">Filters</h3>
                 {activeFilterCount > 0 && (
                   <button 
                     onClick={resetFilters}
                     className="text-xs text-primary font-medium hover:underline"
                   >
-                    Reset all
+                    Reset
                   </button>
                 )}
               </div>
-            </SheetHeader>
-            
-            <div className="overflow-y-auto pb-20">
-              <FilterSection 
-                label="Subject" 
-                options={subjects} 
-                active={activeSubject} 
-                onSelect={setActiveSubject} 
-              />
-              <FilterSection 
-                label="Material Type" 
-                options={materialTypes} 
-                active={activeType} 
-                onSelect={setActiveType} 
-              />
-              <FilterSection 
-                label="Exchange Type" 
-                options={exchangeTypes} 
-                active={activeExchange} 
-                onSelect={setActiveExchange} 
-              />
+              <div className="space-y-4 text-sm">
+                {renderFilterContent()}
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content - Center */}
+          <div className="lg:col-span-2">
+            <div className="pt-2 pb-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-serif font-bold text-foreground">StudySwap</h1>
+                <p className="text-xs text-muted-foreground">Share knowledge, grow together</p>
+              </div>
+              {user && (
+                <Button variant="outline" size="sm" onClick={() => navigate("/request")}>
+                  <HelpCircle className="w-4 h-4 mr-1" /> Request
+                </Button>
+              )}
             </div>
 
-            <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 bg-background border-t">
-              <SheetClose asChild>
-                <Button className="w-full py-6 text-base font-semibold">
-                  Show {filtered.length + (activeSubject === "All" ? filteredRequests.length : 0)} results
+            <div className="relative mb-4 flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search notes, guides, subjects..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-card border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              
+              {/* Filter Button - Mobile Only */}
+              <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="relative px-3 lg:hidden">
+                    <SlidersHorizontal className="w-4 h-4" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[80vh] rounded-t-2xl px-6">
+                  <SheetHeader className="text-left mb-6">
+                    <div className="flex items-center justify-between">
+                      <SheetTitle className="text-xl">Filters</SheetTitle>
+                      {activeFilterCount > 0 && (
+                        <button 
+                          onClick={resetFilters}
+                          className="text-xs text-primary font-medium hover:underline"
+                        >
+                          Reset all
+                        </button>
+                      )}
+                    </div>
+                  </SheetHeader>
+                  
+                  <div className="overflow-y-auto pb-20">
+                    {renderFilterContent()}
+                  </div>
+
+                  <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 bg-background border-t">
+                    <SheetClose asChild>
+                      <Button className="w-full py-6 text-base font-semibold">
+                        Show {filtered.length + (activeSubject === "All" ? filteredRequests.length : 0)} results
+                      </Button>
+                    </SheetClose>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
+            </div>
+
+            {activeFilterCount > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4 items-center">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground mr-1">Active:</span>
+                {activeSubject !== "All" && (
+                  <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    {activeSubject}
+                    <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => setActiveSubject("All")} />
+                  </span>
+                )}
+                {activeType !== "All" && (
+                  <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    {activeType}
+                    <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => setActiveType("All")} />
+                  </span>
+                )}
+                {activeExchange !== "All" && (
+                  <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    {activeExchange}
+                    <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => setActiveExchange("All")} />
+                  </span>
+                )}
+              </div>
+            )}
+
+            {loadError && (
+              <div className="mb-4 rounded-lg border border-border bg-card p-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">{loadError}</p>
+                <Button size="sm" variant="outline" onClick={fetchData}>
+                  <RefreshCcw className="w-3.5 h-3.5 mr-1" /> Retry
                 </Button>
-              </SheetClose>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-      </div>
+              </div>
+            )}
 
-      {activeFilterCount > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4 items-center">
-          <span className="text-[10px] font-bold uppercase text-muted-foreground mr-1">Active:</span>
-          {activeSubject !== "All" && (
-            <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
-              {activeSubject}
-              <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => setActiveSubject("All")} />
-            </span>
-          )}
-          {activeType !== "All" && (
-            <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
-              {activeType}
-              <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => setActiveType("All")} />
-            </span>
-          )}
-          {activeExchange !== "All" && (
-            <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
-              {activeExchange}
-              <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => setActiveExchange("All")} />
-            </span>
-          )}
-        </div>
-      )}
+            {/* Active requests - highest priority, only show if no subject filter or matching subject */}
+            {(activeSubject === "All") && filteredRequests.length > 0 && (
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Requests</h2>
+                  <span className="text-[10px] text-muted-foreground">{filteredRequests.length} open</span>
+                </div>
+                {filteredRequests.map((req) => (
+                  <RequestCard key={req.id} request={req} />
+                ))}
+              </div>
+            )}
 
-      {loadError && (
-        <div className="mb-4 rounded-lg border border-border bg-card p-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">{loadError}</p>
-          <Button size="sm" variant="outline" onClick={fetchData}>
-            <RefreshCcw className="w-3.5 h-3.5 mr-1" /> Retry
-          </Button>
-        </div>
-      )}
-
-      {/* Active requests - highest priority, only show if no subject filter or matching subject */}
-      {(activeSubject === "All") && filteredRequests.length > 0 && (
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Requests</h2>
-            <span className="text-[10px] text-muted-foreground">{filteredRequests.length} open</span>
+            <div className="grid grid-cols-2 gap-3 pb-6">
+              <div className="col-span-2 flex items-center justify-between px-1 mb-1">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Materials</h2>
+                <span className="text-[10px] text-muted-foreground">{filtered.length} items</span>
+              </div>
+              {loading ? (
+                <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">Loading...</div>
+              ) : filtered.length === 0 && (activeSubject !== "All" || filteredRequests.length === 0) ? (
+                <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                  No matching materials found.
+                </div>
+              ) : (
+                filtered.map((material) => (
+                  <ListingCard key={material.id} material={material} />
+                ))
+              )}
+            </div>
           </div>
-          {filteredRequests.map((req) => (
-            <RequestCard key={req.id} request={req} />
-          ))}
-        </div>
-      )}
 
-      <div className="grid grid-cols-2 gap-3 pb-6">
-        <div className="col-span-2 flex items-center justify-between px-1 mb-1">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Materials</h2>
-          <span className="text-[10px] text-muted-foreground">{filtered.length} items</span>
-        </div>
-        {loading ? (
-          <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">Loading...</div>
-        ) : filtered.length === 0 && (activeSubject !== "All" || filteredRequests.length === 0) ? (
-          <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">
-            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-            No matching materials found.
+          {/* Right Sidebar - Desktop Only */}
+          <div className="hidden lg:block lg:col-span-1">
+            <div className="sticky top-20 bg-card rounded-lg border border-border p-4">
+              <h3 className="text-sm font-semibold text-foreground mb-4">Quick Stats</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Materials</span>
+                  <span className="font-semibold text-foreground">{materials.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Requests</span>
+                  <span className="font-semibold text-foreground">{requests.length}</span>
+                </div>
+                <hr className="my-2 border-border" />
+                <div className="text-xs text-muted-foreground">
+                  <p className="font-medium mb-2">Popular Subjects</p>
+                  <div className="flex flex-wrap gap-1">
+                    {subjects.slice(0, 5).map((subject) => (
+                      <button
+                        key={subject}
+                        onClick={() => setActiveSubject(subject)}
+                        className="bg-secondary text-secondary-foreground text-[10px] px-2 py-1 rounded hover:bg-muted transition-colors"
+                      >
+                        {subject}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          filtered.map((material) => (
-            <ListingCard key={material.id} material={material} />
-          ))
-        )}
+        </div>
       </div>
     </div>
   );
