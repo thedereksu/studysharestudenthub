@@ -289,7 +289,7 @@ const PostAIChatSidebar = ({
           )}
         </div>
 
-        <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-background">
+        <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-background pb-20 md:pb-4">
           <div className="flex gap-2">
             <input
               type="text"
