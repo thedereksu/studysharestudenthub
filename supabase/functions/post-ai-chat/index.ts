@@ -205,30 +205,120 @@ ${message}
 The user is asking questions about study material they uploaded. 
 You have been provided with the actual text content of the material directly in the user's message context.
 
-IMPORTANT: You also have full access to the internet and real-time information.
-If the user's question requires information not found in the attached files, or if they ask for current events, external facts, or more context on a topic, you MUST provide that information from your broader knowledge base and real-time search capabilities.
+IMPORTANT: You have access to a "web_search" tool that performs real-time internet searches.
+- For material-specific questions, use the attached file content above as your primary source.
+- If the user's question requires information NOT found in the attached files (current events, external facts, definitions, broader context, recent updates, or any topic beyond the material), you MUST call the web_search tool to retrieve up-to-date information before answering.
+- You may call web_search multiple times with different queries if needed.
+- After searching, synthesize the results into a clear answer and cite source URLs inline when relevant.
 
-Use the provided file content as your primary source for material-specific questions, but seamlessly integrate external information when helpful or requested. 
 Keep responses concise, well-formatted using markdown, and always maintain your helpful, academic personality.`;
 
-    // 3. AI Call
-    const response = await callGateway(lovableApiKey, {
-      model: VISION_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
-        { role: "user", content: injectedMessage }
-      ],
-      max_tokens: 4096,
-    });
+    // Web search tool definition (executed via DuckDuckGo HTML — no API key required)
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "web_search",
+          description: "Search the public internet for up-to-date information on any topic. Use this whenever the user asks about something not contained in the attached material, or when current/external facts are needed.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query. Be specific and concise.",
+              },
+            },
+            required: ["query"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ];
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`AI Gateway Error: ${err}`);
+    async function performWebSearch(query: string): Promise<string> {
+      try {
+        console.log(`[AI Chat] web_search: ${query}`);
+        const resp = await fetch(
+          `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+          { headers: { "User-Agent": "Mozilla/5.0 (compatible; StudySwapBot/1.0)" } }
+        );
+        if (!resp.ok) return `Search failed with status ${resp.status}`;
+        const html = await resp.text();
+        const results: { title: string; url: string; snippet: string }[] = [];
+        const resultRegex = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+        let m;
+        while ((m = resultRegex.exec(html)) !== null && results.length < 6) {
+          const stripTags = (s: string) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+          let url = m[1];
+          // DuckDuckGo wraps URLs in /l/?uddg=...
+          const uddg = url.match(/[?&]uddg=([^&]+)/);
+          if (uddg) url = decodeURIComponent(uddg[1]);
+          results.push({ url, title: stripTags(m[2]), snippet: stripTags(m[3]) });
+        }
+        if (results.length === 0) return "No results found.";
+        return results.map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.snippet}`).join("\n\n");
+      } catch (err) {
+        console.error("[AI Chat] web_search error:", err);
+        return `Search error: ${String(err)}`;
+      }
     }
-    
-    const data = await response.json();
-    const assistantMessage = data.choices?.[0]?.message?.content || "I couldn't generate a response.";
+
+    // 3. AI Call with tool-calling loop (max 4 iterations)
+    const conversationMessages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
+      { role: "user", content: injectedMessage },
+    ];
+
+    let assistantMessage = "I couldn't generate a response.";
+    for (let iter = 0; iter < 4; iter++) {
+      const response = await callGateway(lovableApiKey, {
+        model: VISION_MODEL,
+        messages: conversationMessages,
+        tools,
+        max_tokens: 4096,
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`AI Gateway Error: ${err}`);
+      }
+
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      const msg = choice?.message;
+      if (!msg) break;
+
+      const toolCalls = msg.tool_calls;
+      if (toolCalls && toolCalls.length > 0) {
+        // Append assistant message with tool calls
+        conversationMessages.push(msg);
+        // Execute each tool call
+        for (const call of toolCalls) {
+          if (call.function?.name === "web_search") {
+            let args: any = {};
+            try { args = JSON.parse(call.function.arguments || "{}"); } catch { /* noop */ }
+            const result = await performWebSearch(args.query || "");
+            conversationMessages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: result,
+            });
+          } else {
+            conversationMessages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: "Unknown tool",
+            });
+          }
+        }
+        // Loop again so the model can use the tool results
+        continue;
+      }
+
+      assistantMessage = msg.content || assistantMessage;
+      break;
+    }
 
     return new Response(JSON.stringify({ success: true, message: assistantMessage }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
