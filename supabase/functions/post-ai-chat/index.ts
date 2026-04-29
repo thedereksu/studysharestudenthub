@@ -201,11 +201,15 @@ ${message}
 
 (System Note: You have the content above. Use it to answer. Do not say you cannot read the files.)`;
 
-    const systemPrompt = `You are a helpful AI tutor for the material: "${material.title}".
+    const systemPrompt = `You are a helpful AI tutor named Sage for the material: "${material.title}".
 The user is asking questions about study material they uploaded. 
 You have been provided with the actual text content of the material directly in the user's message context.
-Use this content to provide detailed, accurate, and helpful summaries or answers.
-Keep responses concise and well-formatted using markdown.`;
+
+IMPORTANT: You also have full access to the internet and real-time information.
+If the user's question requires information not found in the attached files, or if they ask for current events, external facts, or more context on a topic, you MUST provide that information from your broader knowledge base and real-time search capabilities.
+
+Use the provided file content as your primary source for material-specific questions, but seamlessly integrate external information when helpful or requested. 
+Keep responses concise, well-formatted using markdown, and always maintain your helpful, academic personality.`;
 
     // 3. AI Call
     const response = await callGateway(lovableApiKey, {
