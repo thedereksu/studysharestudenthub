@@ -182,7 +182,12 @@ const ListingDetail = () => {
         toast({ title: "Cannot unlock", description: result.error, variant: "destructive" });
       } else {
         setUnlocked(true);
-        toast({ title: "Material unlocked!", description: "You now have full access." });
+        toast({ 
+          title: "Material unlocked!", 
+          description: "You now have full access.",
+          // @ts-ignore - custom property for mascot
+          mascot: "success"
+        });
         // Refresh signed URLs after unlock
         await fetchSignedUrls(material.id);
       }

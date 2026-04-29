@@ -201,10 +201,26 @@ const PostAIChatSidebar = ({
       }`}>
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Sparkles className="w-5 h-5 text-primary shrink-0" />
+            <div className="relative">
+              <img 
+                src="/sage-avatar.png" 
+                alt="Sage" 
+                className="w-10 h-10 rounded-full border border-border bg-muted object-cover"
+              />
+              {loading && (
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 border border-border shadow-sm">
+                  <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                </div>
+              )}
+            </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground">Study Assistant</h2>
-              <p className="text-xs text-muted-foreground truncate">{materialTitle}</p>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                Sage
+                <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full font-medium uppercase tracking-wider">AI</span>
+              </h2>
+              <p className="text-xs text-muted-foreground truncate">
+                {loading ? "Sage is thinking..." : materialTitle}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -253,14 +269,21 @@ const PostAIChatSidebar = ({
                   </div>
                 </div>
               ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-muted text-foreground rounded-2xl rounded-tl-none px-4 py-2 text-sm shadow-sm flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Thinking...</span>
-                  </div>
+          {loading && (
+            <div className="flex justify-start">
+              <div className="flex items-start gap-2 max-w-[80%]">
+                <img 
+                  src="/sage-avatar.png" 
+                  alt="Sage" 
+                  className="w-6 h-6 rounded-full border border-border bg-muted shrink-0 mt-1"
+                />
+                <div className="bg-muted rounded-2xl px-4 py-2 text-sm text-foreground flex items-center gap-2 shadow-sm">
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  Sage is thinking...
                 </div>
-              )}
+              </div>
+            </div>
+          )}
               <div ref={messagesEndRef} />
             </>
           )}

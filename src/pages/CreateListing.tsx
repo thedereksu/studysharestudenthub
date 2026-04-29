@@ -105,7 +105,12 @@ const CreateListing = () => {
 
       if (insertError) throw insertError;
 
-      toast({ title: "Material posted!", description: "Your study material is now live." });
+      toast({ 
+        title: "Material posted!", 
+        description: "Your study material is now live.",
+        // @ts-ignore - custom property for mascot
+        mascot: "success"
+      });
       navigate("/");
     } catch (error: any) {
       toast({ title: "Upload failed", description: sanitizeError(error), variant: "destructive" });
