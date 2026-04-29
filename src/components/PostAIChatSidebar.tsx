@@ -260,9 +260,9 @@ const PostAIChatSidebar = ({
                     msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none"
                   }`}>
                     {msg.role === "assistant" ? (
-                      <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none [&>*]:my-1 [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>li]:my-0 [&>strong]:font-bold [&>em]:italic [&>code]:bg-black/20 [&>code]:px-1 [&>code]:rounded">
-                        {msg.content}
-                      </ReactMarkdown>
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*]:my-1 [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>li]:my-0 [&>strong]:font-bold [&>em]:italic [&_code]:bg-black/20 [&_code]:px-1 [&_code]:rounded">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
                     ) : (
                       msg.content
                     )}
