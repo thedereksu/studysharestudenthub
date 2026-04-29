@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import HomePage from "@/pages/HomePage";
+import OnboardingCarousel from "@/components/OnboardingCarousel";
 // Search integrated into HomePage
 import ListingDetail from "@/pages/ListingDetail";
 import CreateListing from "@/pages/CreateListing";
@@ -27,6 +28,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
+        <OnboardingCarousel />
         <Toaster />
         <Sonner />
         <BrowserRouter>
