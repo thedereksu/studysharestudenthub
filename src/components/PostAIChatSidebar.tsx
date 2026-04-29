@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Send, Loader2, Sparkles, Maximize2, Minimize2 } from "lucide-react";
+import { X, Send, Loader2, Sparkles, Maximize2, Minimize2, Search } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +34,15 @@ const PostAIChatSidebar = ({
   const [initialized, setInitialized] = useState(false);
   const [extractedContext, setExtractedContext] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const filteredMessages = searchQuery.trim() === ""
+    ? messages
+    : messages.filter(msg =>
+        msg.content.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -225,6 +233,13 @@ const PostAIChatSidebar = ({
           </div>
           <div className="flex items-center gap-1">
             <button 
+              onClick={() => setIsSearchOpen(!isSearchOpen)}
+              className="p-1.5 rounded-full hover:bg-muted transition-colors"
+              title="Search messages"
+            >
+              <Search className="w-5 h-5 text-foreground" />
+            </button>
+            <button 
               onClick={() => setIsExpanded(!isExpanded)} 
               className="p-1.5 rounded-full hover:bg-muted transition-colors"
               title={isExpanded ? "Collapse" : "Expand"}
@@ -241,8 +256,31 @@ const PostAIChatSidebar = ({
           </div>
         </div>
 
+        {isSearchOpen && (
+          <div className="px-4 py-3 border-b border-border bg-muted/50">
+            <input
+              type="text"
+              placeholder="Search messages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              autoFocus
+            />
+            {searchQuery && filteredMessages.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Found {filteredMessages.length} of {messages.length} messages
+              </p>
+            )}
+            {searchQuery && filteredMessages.length === 0 && messages.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                No messages match your search
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 ? (
+          {messages.length === 0 || (searchQuery && filteredMessages.length === 0) ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <Sparkles className="w-8 h-8 text-primary/30 mb-2" />
               <p className="text-sm text-muted-foreground font-medium">
@@ -254,7 +292,7 @@ const PostAIChatSidebar = ({
             </div>
           ) : (
             <>
-              {messages.map((msg, idx) => (
+              {filteredMessages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                     msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none"
