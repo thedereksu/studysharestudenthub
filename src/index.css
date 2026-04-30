@@ -136,3 +136,22 @@
     text-wrap: balance;
   }
 }
+
+
+/* Hide or minimize Lovable badge */
+[class*="lovable"],
+[id*="lovable"],
+a[href*="lovable.dev"],
+button[aria-label*="Lovable"],
+button[aria-label*="lovable"],
+.lovable-badge,
+.lovable-watermark {
+  display: none !important;
+}
+
+/* Alternative: minimize if the above doesn't work */
+iframe[src*="lovable"],
+div[class*="Edit with"],
+a:has(svg[class*="lovable"]) {
+  display: none !important;
+}
