@@ -116,12 +116,12 @@ async function extractTextFromFile(
             { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
-              text: "You are a document extractor. Extract ALL text content from this file VERBATIM and IN FULL. Process EVERY SINGLE PAGE or SLIDE from beginning to end — do not stop early, do not summarize, do not skip pages. For each page/slide, prefix with '=== Page/Slide N ===' and include all text, bullet points, captions, diagrams, tables, and image descriptions. If it's an image, perform full OCR and describe all visuals. Return ONLY the extracted content.",
+              text: "You are a document extraction specialist. CRITICAL TASK: Extract EVERY SINGLE PAGE or SLIDE from this file, from first to last. Do NOT truncate, summarize, or skip any content. Process the entire document completely. For each page/slide, use the format '=== Page/Slide [N] ===' and include: all text, bullet points, headers, captions, tables, lists, diagrams, and image descriptions. If there are 100 slides, extract all 100. If there are 500 pages, extract all 500. Be thorough and complete. Return the FULL extracted content without any omissions.",
             },
           ],
         },
       ],
-      max_tokens: 16000,
+      max_tokens: 32000,
     });
 
     if (!aiResp.ok) {
@@ -199,11 +199,11 @@ ${fileContent || "No detailed file content available."}
 USER QUESTION:
 ${message}
 
-(System Note: You have the content above. Use it to answer. Do not say you cannot read the files.)`;
+(System Note: You have the complete content above. Use it to answer. Do not say you cannot read the files or that content is missing.)`;
 
     const systemPrompt = `You are a helpful AI tutor named Sage for the material: "${material.title}".
 The user is asking questions about study material they uploaded. 
-You have been provided with the actual text content of the material directly in the user's message context.
+You have been provided with the COMPLETE text content of the material directly in the user's message context.
 
 IMPORTANT: You have access to a "web_search" tool that performs real-time internet searches.
 - For material-specific questions, use the attached file content above as your primary source.
@@ -276,7 +276,7 @@ Keep responses concise, well-formatted using markdown, and always maintain your 
         model: VISION_MODEL,
         messages: conversationMessages,
         tools,
-        max_tokens: 4096,
+        max_tokens: 8192,
       });
 
       if (!response.ok) {
