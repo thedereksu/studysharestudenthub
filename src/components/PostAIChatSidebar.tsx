@@ -202,11 +202,11 @@ const PostAIChatSidebar = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex md:inset-0 bottom-16 md:bottom-0">
-      <div className="absolute inset-0 bg-black/20 md:inset-0 bottom-16 md:bottom-0" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex md:inset-0 bottom-20 md:bottom-0">
+      <div className="absolute inset-0 bg-black/20 md:inset-0 bottom-20 md:bottom-0" onClick={onClose} />
       <div className={`relative ml-auto w-full bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96 transition-all duration-300 ${
         isExpanded ? "max-w-4xl" : "max-w-sm"
-      } md:inset-0 bottom-16 md:bottom-0`}>
+      } md:inset-0 bottom-20 md:bottom-0`}>
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="relative">
@@ -327,7 +327,7 @@ const PostAIChatSidebar = ({
           )}
         </div>
 
-        <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-background pb-20 md:pb-4">
+        <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-background pb-28 md:pb-4">
           <div className="flex gap-2">
             <input
               type="text"
