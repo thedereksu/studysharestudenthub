@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Home, PlusCircle, MessageCircle, User, Search, Shield, HelpCircle } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -12,6 +13,25 @@ const AppLayout = () => {
   const totalUnread = useUnreadCount();
   const { isAdmin } = useAdmin();
   const { user } = useAuth();
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  // Detect keyboard visibility on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      const windowHeight = window.innerHeight;
+      const visualViewport = (window as any).visualViewport?.height || windowHeight;
+      const keyboardHeight = windowHeight - visualViewport;
+      setIsKeyboardOpen(keyboardHeight > 50); // 50px threshold
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, []);
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
@@ -21,7 +41,7 @@ const AppLayout = () => {
     ...(isAdmin ? [{ icon: Shield, label: "Admin", path: "/admin", badge: 0 }] : []),
   ];
 
-  const hideNav = location.pathname.startsWith("/chat/");
+  const hideNav = location.pathname.startsWith("/chat/") || isKeyboardOpen;
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
@@ -36,12 +56,16 @@ const AppLayout = () => {
           </div>
         </header>
       )}
-      <main className="flex-1 pb-20 overflow-y-auto">
+      <main className={`flex-1 overflow-y-auto ${
+        isKeyboardOpen ? "pb-0" : "pb-20"
+      }`}>
         <Outlet />
       </main>
 
       {!hideNav && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
+        <nav className={`fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 transition-all duration-200 ${
+          isKeyboardOpen ? "hidden" : "block"
+        }`}>
           <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
             {navItems.map(({ icon: Icon, label, path, badge }) => {
               const isActive = path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
