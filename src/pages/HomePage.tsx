@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, SlidersHorizontal, Upload, HelpCircle, RefreshCcw, X } from "lucide-react";
+import { Search, SlidersHorizontal, Upload, HelpCircle, RefreshCcw, X, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ListingCard from "@/components/ListingCard";
 import RequestCard from "@/components/RequestCard";
@@ -202,9 +202,16 @@ const HomePage = () => {
                 <p className="text-xs text-muted-foreground">Share knowledge, grow together</p>
               </div>
               {user && (
-                <Button variant="outline" size="sm" onClick={() => navigate("/request")}>
-                  <HelpCircle className="w-4 h-4 mr-1" /> Request
-                </Button>
+                <button
+                  onClick={() => navigate("/request")}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 border border-primary-foreground/20 group relative"
+                  title="Request study materials from the community"
+                >
+                  <img src="/sage-avatar.png" alt="Sage" className="w-5 h-5 object-contain" />
+                  <span className="hidden sm:inline">Request Material</span>
+                  <span className="sm:hidden">Request</span>
+                  <Sparkles className="w-4 h-4 ml-1 group-hover:animate-spin" />
+                </button>
               )}
             </div>
 
