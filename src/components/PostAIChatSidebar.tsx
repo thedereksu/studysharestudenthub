@@ -36,7 +36,34 @@ const PostAIChatSidebar = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Handle keyboard visibility on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      const windowHeight = window.innerHeight;
+      const visualViewport = (window as any).visualViewport?.height || windowHeight;
+      const keyboardH = windowHeight - visualViewport;
+      setKeyboardHeight(keyboardH);
+      
+      // Scroll input into view when keyboard appears
+      if (keyboardH > 0 && inputRef.current) {
+        setTimeout(() => {
+          inputRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 100);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, []);
 
   const filteredMessages = searchQuery.trim() === ""
     ? messages
@@ -327,9 +354,12 @@ const PostAIChatSidebar = ({
           )}
         </div>
 
-        <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-background pb-20 md:pb-4 flex-shrink-0">
+        <form onSubmit={handleSendMessage} className={`p-4 border-t border-border bg-background flex-shrink-0 transition-all duration-200 ${
+          keyboardHeight > 0 ? "pb-4" : "pb-20 md:pb-4"
+        }`}>
           <div className="flex gap-2">
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
