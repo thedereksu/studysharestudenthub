@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 
 const slides = [
   {
@@ -27,12 +26,10 @@ const slides = [
 const OnboardingCarousel = () => {
   const [open, setOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
-    const isAuthenticated = localStorage.getItem("auth_token") || localStorage.getItem("sb-auth-token");
-    if (!hasSeenOnboarding && !isAuthenticated) {
+    if (!hasSeenOnboarding) {
       setOpen(true);
     }
   }, []);
@@ -44,12 +41,8 @@ const OnboardingCarousel = () => {
 
   const handleCreateAccount = () => {
     handleClose();
-    navigate("/auth", { state: { isSignUp: true } });
-  };
-
-  const handleSignIn = () => {
-    handleClose();
-    navigate("/auth", { state: { isSignUp: false } });
+    // Use window.location to navigate instead of useNavigate to avoid hook issues
+    window.location.href = "/auth?signup=true";
   };
 
   const nextSlide = () => {
@@ -67,10 +60,6 @@ const OnboardingCarousel = () => {
   };
 
   if (!open) return null;
-
-  // Don't show onboarding if user is authenticated
-  const isAuthenticated = localStorage.getItem("auth_token") || localStorage.getItem("sb-auth-token");
-  if (isAuthenticated) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -125,7 +114,7 @@ const OnboardingCarousel = () => {
                   <Check className="w-4 h-4 ml-2" />
                 </Button>
                 <button
-                  onClick={handleSignIn}
+                  onClick={() => window.location.href = "/auth"}
                   className="text-sm text-primary font-medium hover:underline transition-colors"
                 >
                   Already have an account? Sign in
