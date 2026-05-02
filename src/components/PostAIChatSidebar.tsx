@@ -204,7 +204,7 @@ const PostAIChatSidebar = ({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className={`relative ml-auto w-full h-screen bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96 transition-all duration-300 ${
+      <div className={`fixed inset-y-0 right-0 ml-auto w-full bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96 transition-all duration-300 ${
         isExpanded ? "max-w-4xl" : "max-w-sm"
       }`}>
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
