@@ -39,10 +39,10 @@ const OnboardingCarousel = () => {
     setOpen(false);
   };
 
-  const handleCreateAccount = () => {
+  const handleJoinStudySwap = () => {
     handleClose();
-    // Use window.location to navigate instead of useNavigate to avoid hook issues
-    window.location.href = "/auth?signup=true";
+    // Navigate to auth page - works for both new signups and existing logins
+    window.location.href = "/auth";
   };
 
   const nextSlide = () => {
@@ -99,7 +99,7 @@ const OnboardingCarousel = () => {
           </p>
           {currentSlide === slides.length - 1 && (
             <p className="text-xs text-muted-foreground/70 mb-6 italic">
-              Join thousands of students sharing knowledge and earning rewards.
+              New or returning? Join thousands of students sharing knowledge and earning rewards.
             </p>
           )}
 
@@ -108,17 +108,11 @@ const OnboardingCarousel = () => {
               <>
                 <Button 
                   className="w-full rounded-xl py-6 text-base font-semibold"
-                  onClick={handleCreateAccount}
+                  onClick={handleJoinStudySwap}
                 >
-                  Create Your Free Account
+                  Join StudySwap
                   <Check className="w-4 h-4 ml-2" />
                 </Button>
-                <button
-                  onClick={() => window.location.href = "/auth"}
-                  className="text-sm text-primary font-medium hover:underline transition-colors"
-                >
-                  Already have an account? Sign in
-                </button>
               </>
             ) : (
               <div className="flex gap-3">
