@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const slides = [
   {
@@ -26,10 +27,12 @@ const slides = [
 const OnboardingCarousel = () => {
   const [open, setOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
-    if (!hasSeenOnboarding) {
+    const isAuthenticated = localStorage.getItem("auth_token") || localStorage.getItem("sb-auth-token");
+    if (!hasSeenOnboarding && !isAuthenticated) {
       setOpen(true);
     }
   }, []);
@@ -37,6 +40,16 @@ const OnboardingCarousel = () => {
   const handleClose = () => {
     localStorage.setItem("hasSeenOnboarding", "true");
     setOpen(false);
+  };
+
+  const handleCreateAccount = () => {
+    handleClose();
+    navigate("/auth", { state: { isSignUp: true } });
+  };
+
+  const handleSignIn = () => {
+    handleClose();
+    navigate("/auth", { state: { isSignUp: false } });
   };
 
   const nextSlide = () => {
@@ -54,6 +67,10 @@ const OnboardingCarousel = () => {
   };
 
   if (!open) return null;
+
+  // Don't show onboarding if user is authenticated
+  const isAuthenticated = localStorage.getItem("auth_token") || localStorage.getItem("sb-auth-token");
+  if (isAuthenticated) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -91,34 +108,50 @@ const OnboardingCarousel = () => {
           <p className="text-sm text-muted-foreground leading-relaxed mb-8">
             {slides[currentSlide].description}
           </p>
+          {currentSlide === slides.length - 1 && (
+            <p className="text-xs text-muted-foreground/70 mb-6 italic">
+              Join thousands of students sharing knowledge and earning rewards.
+            </p>
+          )}
 
-          <div className="flex w-full gap-3">
-            {currentSlide > 0 && (
-              <Button 
-                variant="outline" 
-                className="flex-1 rounded-xl py-6"
-                onClick={prevSlide}
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            )}
-            <Button 
-              className="flex-1 rounded-xl py-6"
-              onClick={nextSlide}
-            >
-              {currentSlide === slides.length - 1 ? (
-                <>
-                  Get Started
+          <div className="flex flex-col w-full gap-3">
+            {currentSlide === slides.length - 1 ? (
+              <>
+                <Button 
+                  className="w-full rounded-xl py-6 text-base font-semibold"
+                  onClick={handleCreateAccount}
+                >
+                  Create Your Free Account
                   <Check className="w-4 h-4 ml-2" />
-                </>
-              ) : (
-                <>
+                </Button>
+                <button
+                  onClick={handleSignIn}
+                  className="text-sm text-primary font-medium hover:underline transition-colors"
+                >
+                  Already have an account? Sign in
+                </button>
+              </>
+            ) : (
+              <div className="flex gap-3">
+                {currentSlide > 0 && (
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 rounded-xl py-6"
+                    onClick={prevSlide}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                )}
+                <Button 
+                  className="flex-1 rounded-xl py-6"
+                  onClick={nextSlide}
+                >
                   Next
                   <ChevronRight className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
