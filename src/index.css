@@ -117,13 +117,25 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  html {
+    /* Use dynamic viewport height to prevent browser UI shifts */
+    height: 100dvh;
+    height: 100vh;
+    overflow: hidden;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'DM Sans', sans-serif;
+    height: 100dvh;
+    height: 100vh;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  * {
+    @apply border-border;
   }
 
   h1, h2, h3 {

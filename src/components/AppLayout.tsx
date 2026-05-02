@@ -24,9 +24,9 @@ const AppLayout = () => {
   const hideNav = location.pathname.startsWith("/chat/");
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {!hideNav && (
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b border-border">
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b border-border flex-shrink-0">
           <div className="max-w-lg mx-auto px-4 h-12 flex items-center justify-between">
             <button onClick={() => navigate("/")} className="flex items-center gap-2">
               <img src={logoImg} alt="StudySwap" className="w-9 h-9" />
@@ -36,7 +36,7 @@ const AppLayout = () => {
           </div>
         </header>
       )}
-      <main className="flex-1 pb-20">
+      <main className="flex-1 pb-20 overflow-y-auto">
         <Outlet />
       </main>
 
