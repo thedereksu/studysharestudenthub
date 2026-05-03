@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeError } from "@/lib/errors";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import MagicUpload from "@/components/MagicUpload";
 
 const exchangeOptions = ["Free", "Trade", "Paid"];
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
@@ -36,6 +37,20 @@ const CreateListing = () => {
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
   const [ownershipConfirmed, setOwnershipConfirmed] = useState(false);
+  const [showMagicUpload, setShowMagicUpload] = useState(true);
+
+  const handleMagicAnalysisComplete = (analysis: {
+    title: string;
+    description: string;
+    subject: string;
+    type: string;
+  }) => {
+    setTitle(analysis.title);
+    setDescription(analysis.description);
+    setSubject(analysis.subject);
+    setType(analysis.type);
+    setShowMagicUpload(false);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -155,6 +170,13 @@ const CreateListing = () => {
         onChange={handleFileSelect}
         className="hidden"
       />
+
+      {showMagicUpload && files.length === 0 && (
+        <MagicUpload
+          onAnalysisComplete={handleMagicAnalysisComplete}
+          onFilesSelected={setFiles}
+        />
+      )}
 
       {files.length === 0 ? (
         <button
