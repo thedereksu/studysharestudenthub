@@ -52,6 +52,11 @@ const CreateListing = () => {
     setShowMagicUpload(false);
   };
 
+  const handleMagicFilesSelected = (selectedFiles: SelectedFile[]) => {
+    // Add the files from Magic Upload to the files state
+    setFiles((prev) => [...prev, ...selectedFiles]);
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const valid: SelectedFile[] = [];
@@ -174,7 +179,7 @@ const CreateListing = () => {
       {showMagicUpload && files.length === 0 && (
         <MagicUpload
           onAnalysisComplete={handleMagicAnalysisComplete}
-          onFilesSelected={setFiles}
+          onFilesSelected={handleMagicFilesSelected}
         />
       )}
 

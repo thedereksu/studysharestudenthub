@@ -1,7 +1,11 @@
 import { useState, useRef } from "react";
 import { Camera, Upload, Loader2, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+
+interface SelectedFile {
+  file: File;
+  preview: string | null;
+}
 
 interface MagicUploadProps {
   onAnalysisComplete: (analysis: {
@@ -10,7 +14,7 @@ interface MagicUploadProps {
     subject: string;
     type: string;
   }) => void;
-  onFilesSelected: (files: File[]) => void;
+  onFilesSelected: (files: SelectedFile[]) => void;
 }
 
 const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) => {
@@ -24,39 +28,56 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const base64 = (e.target?.result as string).split(",")[1];
-        const mimeType = file.type;
+        try {
+          const base64 = (e.target?.result as string).split(",")[1];
+          const mimeType = file.type;
 
-        const response = await fetch("/functions/v1/analyze-material", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("supabase.auth.token")}`,
-          },
-          body: JSON.stringify({
-            imageBase64: base64,
-            mimeType,
-          }),
-        });
+          const response = await fetch("/functions/v1/analyze-material", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("supabase.auth.token")}`,
+            },
+            body: JSON.stringify({
+              imageBase64: base64,
+              mimeType,
+            }),
+          });
 
-        if (!response.ok) {
-          throw new Error("Analysis failed");
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Analysis failed");
+          }
+
+          const analysis = await response.json();
+          
+          // Create SelectedFile object with preview
+          const selectedFile: SelectedFile = {
+            file,
+            preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+          };
+          
+          // Pass the SelectedFile object to parent
+          onFilesSelected([selectedFile]);
+          onAnalysisComplete(analysis);
+
+          toast({
+            title: "✨ Sage analyzed your material!",
+            description: "Review the suggestions and adjust as needed.",
+          });
+        } catch (error: any) {
+          toast({
+            title: "Analysis failed",
+            description: error.message || "Could not analyze the image",
+            variant: "destructive",
+          });
         }
-
-        const analysis = await response.json();
-        onFilesSelected([file]);
-        onAnalysisComplete(analysis);
-
-        toast({
-          title: "✨ Sage analyzed your material!",
-          description: "Review the suggestions and adjust as needed.",
-        });
       };
       reader.readAsDataURL(file);
     } catch (error: any) {
       toast({
-        title: "Analysis failed",
-        description: error.message || "Could not analyze the image",
+        title: "Error reading file",
+        description: error.message || "Could not read the file",
         variant: "destructive",
       });
     } finally {
@@ -68,6 +89,8 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
     const file = e.target.files?.[0];
     if (file) {
       analyzeImage(file);
+      // Reset input
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
@@ -80,9 +103,12 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
           description: "Please use JPG, PNG, or HEIC images",
           variant: "destructive",
         });
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
       analyzeImage(file);
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
