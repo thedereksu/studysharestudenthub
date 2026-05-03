@@ -21,16 +21,6 @@ interface AnalysisResponse {
   type: string;
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
 async function analyzeWithAI(
   imageBase64: string,
   mimeType: string,
@@ -50,6 +40,8 @@ Respond in JSON format:
   "type": "..."
 }`;
 
+  console.log("[analyze-material] Calling AI Gateway...");
+  
   const response = await fetch(AI_GATEWAY_URL, {
     method: "POST",
     headers: {
@@ -80,20 +72,33 @@ Respond in JSON format:
     }),
   });
 
+  console.log("[analyze-material] AI Gateway response status:", response.status);
+
   if (!response.ok) {
-    throw new Error(`AI Gateway error: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error("[analyze-material] AI Gateway error:", errorText);
+    throw new Error(`AI Gateway error: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
+  console.log("[analyze-material] AI response received");
+  
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error("Invalid AI response format");
+  }
+  
   const content = data.choices[0].message.content;
 
   // Parse JSON from response
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
+    console.error("[analyze-material] Could not parse JSON from:", content);
     throw new Error("Could not parse AI response");
   }
 
-  return JSON.parse(jsonMatch[0]);
+  const parsed = JSON.parse(jsonMatch[0]);
+  console.log("[analyze-material] Successfully parsed:", parsed);
+  return parsed;
 }
 
 Deno.serve(async (req) => {
@@ -102,17 +107,32 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { imageBase64, mimeType } = (await req.json()) as AnalysisRequest;
+    console.log("[analyze-material] Request received");
+    
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.error("[analyze-material] Failed to parse JSON:", e);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    const { imageBase64, mimeType } = body as AnalysisRequest;
 
     if (!imageBase64 || !mimeType) {
+      console.error("[analyze-material] Missing required fields");
       return new Response(
         JSON.stringify({ error: "Missing imageBase64 or mimeType" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
+      console.error("[analyze-material] LOVABLE_API_KEY not configured");
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
@@ -122,7 +142,7 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("Analysis error:", error);
+    console.error("[analyze-material] Error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Analysis failed" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

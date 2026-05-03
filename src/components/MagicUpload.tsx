@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Camera, Upload, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SelectedFile {
   file: File;
@@ -32,11 +33,24 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
           const base64 = (e.target?.result as string).split(",")[1];
           const mimeType = file.type;
 
-          const response = await fetch("/functions/v1/analyze-material", {
+          // Get the session token from Supabase
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          
+          if (!supabaseUrl || !supabaseKey) {
+            throw new Error("Supabase configuration missing");
+          }
+
+          console.log("[MagicUpload] Calling analyze-material function...");
+          
+          const response = await fetch(`${supabaseUrl}/functions/v1/analyze-material`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("supabase.auth.token")}`,
+              Authorization: `Bearer ${session?.access_token || ""}`,
+              apikey: supabaseKey,
             },
             body: JSON.stringify({
               imageBase64: base64,
@@ -44,12 +58,16 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
             }),
           });
 
+          console.log("[MagicUpload] Response status:", response.status);
+          
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "Analysis failed");
+            const text = await response.text();
+            console.error("[MagicUpload] Error response:", text);
+            throw new Error(`Analysis failed: ${response.statusText}`);
           }
 
           const analysis = await response.json();
+          console.log("[MagicUpload] Analysis result:", analysis);
           
           // Create SelectedFile object with preview
           const selectedFile: SelectedFile = {
@@ -66,6 +84,7 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
             description: "Review the suggestions and adjust as needed.",
           });
         } catch (error: any) {
+          console.error("[MagicUpload] Analysis error:", error);
           toast({
             title: "Analysis failed",
             description: error.message || "Could not analyze the image",
@@ -75,6 +94,7 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
       };
       reader.readAsDataURL(file);
     } catch (error: any) {
+      console.error("[MagicUpload] File read error:", error);
       toast({
         title: "Error reading file",
         description: error.message || "Could not read the file",
