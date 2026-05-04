@@ -39,7 +39,35 @@ Respond in JSON format:
   "type": "..."
 }`;
 
-  console.log("[analyze-material] Calling AI Gateway...");
+  console.log("[analyze-material] Image size:", imageBase64.length, "bytes");
+  console.log("[analyze-material] MIME type:", mimeType);
+  console.log("[analyze-material] Calling AI Gateway at:", AI_GATEWAY_URL);
+  console.log("[analyze-material] Using model:", VISION_MODEL);
+  
+  const requestBody = {
+    model: VISION_MODEL,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${imageBase64}`,
+            },
+          },
+          {
+            type: "text",
+            text: prompt,
+          },
+        ],
+      },
+    ],
+    max_tokens: 500,
+    temperature: 0.7,
+  };
+
+  console.log("[analyze-material] Request body size:", JSON.stringify(requestBody).length, "bytes");
   
   const response = await fetch(AI_GATEWAY_URL, {
     method: "POST",
@@ -47,56 +75,48 @@ Respond in JSON format:
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: VISION_MODEL,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${imageBase64}`,
-              },
-            },
-            {
-              type: "text",
-              text: prompt,
-            },
-          ],
-        },
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   console.log("[analyze-material] AI Gateway response status:", response.status);
+  console.log("[analyze-material] Response headers:", Object.fromEntries(response.headers.entries()));
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[analyze-material] AI Gateway error:", errorText);
-    throw new Error(`AI Gateway error: ${response.status} ${response.statusText}`);
+    console.error("[analyze-material] AI Gateway error response:", errorText);
+    
+    // Try to parse error details
+    let errorDetail = errorText;
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorDetail = errorJson.error?.message || errorJson.message || errorText;
+    } catch (e) {
+      // Not JSON, use raw text
+    }
+    
+    throw new Error(`AI Gateway error: ${response.status} ${response.statusText} - ${errorDetail}`);
   }
 
   const data = await response.json();
-  console.log("[analyze-material] AI response received");
+  console.log("[analyze-material] AI response received, choices count:", data.choices?.length);
   
   if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    console.error("[analyze-material] Invalid response structure:", data);
     throw new Error("Invalid AI response format");
   }
   
   const content = data.choices[0].message.content;
+  console.log("[analyze-material] Message content:", content);
 
   // Parse JSON from response
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    console.error("[analyze-material] Could not parse JSON from:", content);
-    throw new Error("Could not parse AI response");
+    console.error("[analyze-material] Could not parse JSON from content:", content);
+    throw new Error("Could not parse AI response as JSON");
   }
 
   const parsed = JSON.parse(jsonMatch[0]);
-  console.log("[analyze-material] Successfully parsed:", parsed);
+  console.log("[analyze-material] Successfully parsed analysis:", parsed);
   return parsed;
 }
 
@@ -153,13 +173,15 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       console.error("[analyze-material] LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
+        JSON.stringify({ error: "Server configuration error: API key not found" }),
         { 
           status: 500, 
           headers: { "Content-Type": "application/json", ...corsHeaders } 
         }
       );
     }
+
+    console.log("[analyze-material] API key found, length:", apiKey.length);
 
     const analysis = await analyzeWithAI(imageBase64, mimeType, apiKey);
 
@@ -168,7 +190,8 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("[analyze-material] Error:", error);
+    console.error("[analyze-material] Error:", error.message);
+    console.error("[analyze-material] Error stack:", error.stack);
     return new Response(
       JSON.stringify({ error: error.message || "Analysis failed" }),
       { 

@@ -51,6 +51,8 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
           }
 
           console.log("[MagicUpload] Supabase URL:", supabaseUrl);
+          console.log("[MagicUpload] Image size:", base64.length, "bytes");
+          console.log("[MagicUpload] MIME type:", mimeType);
           console.log("[MagicUpload] Calling analyze-material function...");
           
           const functionUrl = `${supabaseUrl}/functions/v1/analyze-material`;
@@ -75,13 +77,23 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
             const text = await response.text();
             console.error("[MagicUpload] Error response:", text);
             
+            let errorMessage = "Analysis failed";
+            try {
+              const errorJson = JSON.parse(text);
+              errorMessage = errorJson.error || text;
+            } catch (e) {
+              errorMessage = text;
+            }
+            
+            console.error("[MagicUpload] Parsed error:", errorMessage);
+            
             // Even if analysis fails, attach the file so user doesn't lose it
             const selectedFile = createSelectedFile(file);
             onFilesSelected([selectedFile]);
             
             toast({
               title: "⚠️ Sage couldn't analyze this one",
-              description: "But your file is attached! You can fill in the details manually.",
+              description: "Your file is attached! You can fill in the details manually.",
               variant: "destructive",
             });
             setAnalyzing(false);
