@@ -24,6 +24,13 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const createSelectedFile = (file: File): SelectedFile => {
+    return {
+      file,
+      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+    };
+  };
+
   const analyzeImage = async (file: File) => {
     setAnalyzing(true);
     try {
@@ -43,9 +50,13 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
             throw new Error("Supabase configuration missing");
           }
 
+          console.log("[MagicUpload] Supabase URL:", supabaseUrl);
           console.log("[MagicUpload] Calling analyze-material function...");
           
-          const response = await fetch(`${supabaseUrl}/functions/v1/analyze-material`, {
+          const functionUrl = `${supabaseUrl}/functions/v1/analyze-material`;
+          console.log("[MagicUpload] Function URL:", functionUrl);
+
+          const response = await fetch(functionUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -63,17 +74,25 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
           if (!response.ok) {
             const text = await response.text();
             console.error("[MagicUpload] Error response:", text);
-            throw new Error(`Analysis failed: ${response.statusText}`);
+            
+            // Even if analysis fails, attach the file so user doesn't lose it
+            const selectedFile = createSelectedFile(file);
+            onFilesSelected([selectedFile]);
+            
+            toast({
+              title: "⚠️ Sage couldn't analyze this one",
+              description: "But your file is attached! You can fill in the details manually.",
+              variant: "destructive",
+            });
+            setAnalyzing(false);
+            return;
           }
 
           const analysis = await response.json();
           console.log("[MagicUpload] Analysis result:", analysis);
           
           // Create SelectedFile object with preview
-          const selectedFile: SelectedFile = {
-            file,
-            preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-          };
+          const selectedFile = createSelectedFile(file);
           
           // Pass the SelectedFile object to parent
           onFilesSelected([selectedFile]);
@@ -85,11 +104,18 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
           });
         } catch (error: any) {
           console.error("[MagicUpload] Analysis error:", error);
+          
+          // Attach file even if analysis fails
+          const selectedFile = createSelectedFile(file);
+          onFilesSelected([selectedFile]);
+          
           toast({
-            title: "Analysis failed",
-            description: error.message || "Could not analyze the image",
+            title: "⚠️ Analysis couldn't complete",
+            description: "Your file is attached. Fill in the details manually or try again.",
             variant: "destructive",
           });
+        } finally {
+          setAnalyzing(false);
         }
       };
       reader.readAsDataURL(file);
@@ -100,7 +126,6 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
         description: error.message || "Could not read the file",
         variant: "destructive",
       });
-    } finally {
       setAnalyzing(false);
     }
   };

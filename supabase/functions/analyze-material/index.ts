@@ -1,9 +1,8 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-info",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-info",
+  "Access-Control-Max-Age": "86400",
 };
 
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -102,12 +101,26 @@ Respond in JSON format:
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
   }
 
   try {
-    console.log("[analyze-material] Request received");
+    console.log("[analyze-material] Request received, method:", req.method);
+    
+    if (req.method !== "POST") {
+      return new Response(
+        JSON.stringify({ error: "Method not allowed" }),
+        { 
+          status: 405, 
+          headers: { "Content-Type": "application/json", ...corsHeaders } 
+        }
+      );
+    }
     
     let body;
     try {
@@ -116,7 +129,10 @@ Deno.serve(async (req) => {
       console.error("[analyze-material] Failed to parse JSON:", e);
       return new Response(
         JSON.stringify({ error: "Invalid JSON in request body" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { 
+          status: 400, 
+          headers: { "Content-Type": "application/json", ...corsHeaders } 
+        }
       );
     }
     
@@ -126,26 +142,39 @@ Deno.serve(async (req) => {
       console.error("[analyze-material] Missing required fields");
       return new Response(
         JSON.stringify({ error: "Missing imageBase64 or mimeType" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { 
+          status: 400, 
+          headers: { "Content-Type": "application/json", ...corsHeaders } 
+        }
       );
     }
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
       console.error("[analyze-material] LOVABLE_API_KEY not configured");
-      throw new Error("LOVABLE_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { 
+          status: 500, 
+          headers: { "Content-Type": "application/json", ...corsHeaders } 
+        }
+      );
     }
 
     const analysis = await analyzeWithAI(imageBase64, mimeType, apiKey);
 
     return new Response(JSON.stringify(analysis), {
+      status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
     console.error("[analyze-material] Error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Analysis failed" }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      { 
+        status: 500, 
+        headers: { "Content-Type": "application/json", ...corsHeaders } 
+      }
     );
   }
 });
