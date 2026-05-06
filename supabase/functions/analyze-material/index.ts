@@ -106,10 +106,13 @@ async function analyzeWithAI(
   apiKey: string
 ): Promise<AnalysisResponse> {
   const prompt = `You are Sage, an AI assistant for StudySwap. Analyze this study material image and provide:
-1. A concise, descriptive title (max 50 characters)
+1. A title following this EXACT format: [Class Name] [Type of Material] ([Topic])
+   Examples: "AP World History Notes (Enlightenment)", "Calculus II Practice Problems (Integration)"
 2. A brief description of what's in the material (max 150 characters)
 3. The most appropriate subject (choose from: Math, Science, English, History, Foreign Language, Computer Science, Business, Art, Music, Other)
 4. The material type (choose from: Notes, Textbook, Practice Problems, Study Guide, Flashcards, Essay, Other)
+
+IMPORTANT: The title MUST follow the format [Class Name] [Type of Material] ([Topic]). Do not deviate from this format.
 
 Respond in JSON format:
 {
