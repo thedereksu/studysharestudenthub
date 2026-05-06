@@ -20,6 +20,31 @@ interface AnalysisResponse {
   type: string;
 }
 
+function cleanBase64(input: string): string {
+  if (!input) return "";
+  let cleaned = input.trim();
+  // Strip data URI prefix if present
+  if (cleaned.startsWith("data:") && cleaned.includes(",")) {
+    cleaned = cleaned.split(",")[1] ?? "";
+  }
+  // Remove all whitespace/newlines
+  cleaned = cleaned.replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleaned)) {
+    throw new Error("Invalid base64 image data");
+  }
+  return cleaned;
+}
+
+function normalizeMimeType(mime: string): string {
+  const m = (mime || "").toLowerCase().trim();
+  // Gemini supports png, jpeg, webp, gif. Reject HEIC explicitly.
+  if (m === "image/heic" || m === "image/heif") {
+    throw new Error("HEIC/HEIF images aren't supported. Please use JPG, PNG, or WEBP.");
+  }
+  if (m === "image/jpg") return "image/jpeg";
+  return m || "image/jpeg";
+}
+
 async function analyzeWithAI(
   imageBase64: string,
   mimeType: string,
