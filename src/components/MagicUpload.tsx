@@ -66,8 +66,10 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
               apikey: supabaseKey,
             },
             body: JSON.stringify({
+              fileBase64: base64,
               imageBase64: base64,
               mimeType,
+              fileName: file.name,
             }),
           });
 
@@ -154,10 +156,11 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      const accepted = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      if (!accepted.includes(file.type)) {
         toast({
           title: "Unsupported format",
-          description: "Please use JPG, PNG, or WEBP images (HEIC isn't supported)",
+          description: "Please use JPG, PNG, WEBP, or PDF (HEIC isn't supported)",
           variant: "destructive",
         });
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -220,7 +223,7 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
         onChange={handleFileUpload}
         className="hidden"
       />

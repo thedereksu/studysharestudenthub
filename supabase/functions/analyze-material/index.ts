@@ -9,8 +9,10 @@ const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const VISION_MODEL = "google/gemini-2.5-flash";
 
 interface AnalysisRequest {
-  imageBase64: string;
+  imageBase64?: string;
   mimeType: string;
+  fileBase64?: string;
+  fileName?: string;
 }
 
 interface AnalysisResponse {
@@ -43,6 +45,59 @@ function normalizeMimeType(mime: string): string {
   }
   if (m === "image/jpg") return "image/jpeg";
   return m || "image/jpeg";
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function extractPdfText(b64: string): Promise<string> {
+  const bytes = base64ToBytes(b64);
+  if (bytes.byteLength > 20 * 1024 * 1024) {
+    throw new Error("PDF too large. Please use one under 20MB.");
+  }
+  const { extractText, getDocumentProxy } = await import("https://esm.sh/unpdf@0.12.1");
+  const pdf = await getDocumentProxy(bytes);
+  const { text } = await extractText(pdf, { mergePages: true });
+  return (text || "").slice(0, 40000);
+}
+
+async function analyzeTextWithAI(text: string, fileName: string, apiKey: string): Promise<AnalysisResponse> {
+  const prompt = `You are Sage, an AI assistant for StudySwap. Analyze this study material${fileName ? ` (filename: ${fileName})` : ""} and provide:
+1. A concise, descriptive title (max 50 characters)
+2. A brief description of what's in the material (max 150 characters)
+3. The most appropriate subject (choose from: Math, Science, English, History, Foreign Language, Computer Science, Business, Art, Music, Other)
+4. The material type (choose from: Notes, Textbook, Practice Problems, Study Guide, Flashcards, Essay, Other)
+
+Respond ONLY in JSON format:
+{"title":"...","description":"...","subject":"...","type":"..."}
+
+--- MATERIAL CONTENT ---
+${text}`;
+
+  const response = await fetch(AI_GATEWAY_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 500,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
+  }
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || "";
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("Could not parse AI response as JSON");
+  return JSON.parse(jsonMatch[0]);
 }
 
 async function analyzeWithAI(
@@ -181,40 +236,29 @@ Deno.serve(async (req) => {
       );
     }
     
-    const { imageBase64, mimeType } = body as AnalysisRequest;
+    const { imageBase64, mimeType, fileBase64, fileName } = body as AnalysisRequest;
+    const rawBase64 = fileBase64 ?? imageBase64;
 
-    if (!imageBase64 || !mimeType) {
-      console.error("[analyze-material] Missing required fields");
+    if (!rawBase64 || !mimeType) {
       return new Response(
-        JSON.stringify({ error: "Missing imageBase64 or mimeType" }),
-        { 
-          status: 400, 
-          headers: { "Content-Type": "application/json", ...corsHeaders } 
-        }
+        JSON.stringify({ error: "Missing file data or mimeType" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    let normalizedMime: string;
     let cleanedBase64: string;
     try {
-      normalizedMime = normalizeMimeType(mimeType);
-      cleanedBase64 = cleanBase64(imageBase64);
+      cleanedBase64 = cleanBase64(rawBase64);
     } catch (e: any) {
-      console.error("[analyze-material] Input validation failed:", e.message);
       return new Response(
         JSON.stringify({ error: e.message }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // Gemini image limit ~20MB inline. Base64 inflates ~33%, so cap raw at ~15MB.
-    const approxBytes = Math.floor((cleanedBase64.length * 3) / 4);
-    if (approxBytes > 15 * 1024 * 1024) {
-      return new Response(
-        JSON.stringify({ error: "Image is too large. Please use one under 15MB." }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
+    const mimeLower = (mimeType || "").toLowerCase();
+    const isPdf = mimeLower === "application/pdf";
+    const isImage = mimeLower.startsWith("image/");
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
@@ -230,7 +274,27 @@ Deno.serve(async (req) => {
 
     console.log("[analyze-material] API key found, length:", apiKey.length);
 
-    const analysis = await analyzeWithAI(cleanedBase64, normalizedMime, apiKey);
+    let analysis: AnalysisResponse;
+    if (isPdf) {
+      const text = await extractPdfText(cleanedBase64);
+      if (!text.trim()) throw new Error("Could not extract text from PDF (it may be scanned/image-only).");
+      analysis = await analyzeTextWithAI(text, fileName || "", apiKey);
+    } else if (isImage) {
+      const normalizedMime = normalizeMimeType(mimeType);
+      const approxBytes = Math.floor((cleanedBase64.length * 3) / 4);
+      if (approxBytes > 15 * 1024 * 1024) {
+        return new Response(
+          JSON.stringify({ error: "Image is too large. Please use one under 15MB." }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      analysis = await analyzeWithAI(cleanedBase64, normalizedMime, apiKey);
+    } else {
+      return new Response(
+        JSON.stringify({ error: `Unsupported file type: ${mimeType}. Use an image or PDF.` }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     return new Response(JSON.stringify(analysis), {
       status: 200,
