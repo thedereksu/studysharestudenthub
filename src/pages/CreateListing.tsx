@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import MagicUpload from "@/components/MagicUpload";
 
 const exchangeOptions = ["Free", "Trade", "Paid"];
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
 
 interface SelectedFile {
   file: File;
@@ -62,10 +61,6 @@ const CreateListing = () => {
     const valid: SelectedFile[] = [];
 
     for (const file of selected) {
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        toast({ title: "Skipped unsupported file", description: `${file.name} is not a supported format.`, variant: "destructive" });
-        continue;
-      }
       valid.push({
         file,
         preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
@@ -170,7 +165,7 @@ const CreateListing = () => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".jpg,.jpeg,.png,.heic,.pdf"
+        accept="*/*"
         multiple
         onChange={handleFileSelect}
         className="hidden"
@@ -190,7 +185,7 @@ const CreateListing = () => {
         >
           <Upload className="w-8 h-8 text-muted-foreground" />
           <span className="text-sm text-foreground font-medium">Upload Files</span>
-          <span className="text-[10px] text-muted-foreground">JPG, PNG, HEIC, or PDF · Multiple files supported</span>
+          <span className="text-[10px] text-muted-foreground">Any file type · Multiple files supported</span>
         </button>
       ) : (
         <div className="mb-5 space-y-2">
