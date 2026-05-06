@@ -194,6 +194,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    let normalizedMime: string;
+    let cleanedBase64: string;
+    try {
+      normalizedMime = normalizeMimeType(mimeType);
+      cleanedBase64 = cleanBase64(imageBase64);
+    } catch (e: any) {
+      console.error("[analyze-material] Input validation failed:", e.message);
+      return new Response(
+        JSON.stringify({ error: e.message }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Gemini image limit ~20MB inline. Base64 inflates ~33%, so cap raw at ~15MB.
+    const approxBytes = Math.floor((cleanedBase64.length * 3) / 4);
+    if (approxBytes > 15 * 1024 * 1024) {
+      return new Response(
+        JSON.stringify({ error: "Image is too large. Please use one under 15MB." }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
       console.error("[analyze-material] LOVABLE_API_KEY not configured");
@@ -208,7 +230,7 @@ Deno.serve(async (req) => {
 
     console.log("[analyze-material] API key found, length:", apiKey.length);
 
-    const analysis = await analyzeWithAI(imageBase64, mimeType, apiKey);
+    const analysis = await analyzeWithAI(cleanedBase64, normalizedMime, apiKey);
 
     return new Response(JSON.stringify(analysis), {
       status: 200,
@@ -217,10 +239,14 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error("[analyze-material] Error:", error.message);
     console.error("[analyze-material] Error stack:", error.stack);
+    const msg: string = error?.message || "Analysis failed";
+    let status = 500;
+    if (msg.includes("429")) status = 429;
+    else if (msg.includes("402")) status = 402;
     return new Response(
-      JSON.stringify({ error: error.message || "Analysis failed" }),
+      JSON.stringify({ error: msg }),
       { 
-        status: 500, 
+        status, 
         headers: { "Content-Type": "application/json", ...corsHeaders } 
       }
     );
