@@ -56,7 +56,7 @@ const CreateListing = () => {
     setFiles((prev) => [...prev, ...selectedFiles]);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const valid: SelectedFile[] = [];
 
@@ -69,6 +69,54 @@ const CreateListing = () => {
 
     setFiles((prev) => [...prev, ...valid]);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    
+    // Trigger AI analysis on the first file if title is not already set
+    if (valid.length > 0 && !title) {
+      const firstFile = valid[0].file;
+      await analyzeFileWithAI(firstFile);
+    }
+  };
+
+  const analyzeFileWithAI = async (file: File) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = (event.target?.result as string)?.split(",")[1];
+        if (!base64) return;
+
+        toast({ title: "Sage is analyzing your material...", description: "This may take a moment." });
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-material`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({
+              imageBase64: base64,
+              mimeType: file.type,
+              fileName: file.name,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const analysis = await response.json();
+          handleMagicAnalysisComplete(analysis);
+          toast({ title: "✨ Sage has filled in your details!", variant: "default" });
+        } else {
+          const error = await response.json();
+          console.error("Analysis failed:", error);
+          toast({ title: "Sage couldn't analyze this file", description: "Please fill in the details manually.", variant: "destructive" });
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error analyzing file:", error);
+      toast({ title: "Error analyzing file", variant: "destructive" });
+    }
   };
 
   const removeFile = (index: number) => {

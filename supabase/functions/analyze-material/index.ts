@@ -11,6 +11,7 @@ const VISION_MODEL = "google/gemini-2.5-flash";
 interface AnalysisRequest {
   imageBase64: string;
   mimeType: string;
+  fileName?: string;
 }
 
 interface AnalysisResponse {
@@ -27,7 +28,7 @@ function validateBase64(base64: string): string {
   }
   cleaned = cleaned.replace(/\s+/g, "");
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleaned)) {
-    throw new Error("Invalid base64 image data");
+    throw new Error("Invalid base64 data");
   }
   return cleaned;
 }
@@ -37,20 +38,27 @@ function normalizeMimeType(mime: string): string {
   if (m === "image/heic" || m === "image/heif") {
     throw new Error("HEIC format not supported");
   }
-  const supported = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  if (!supported.includes(m)) {
+  // Support images and PDFs
+  const supportedImages = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const supportedDocs = ["application/pdf"];
+  const allSupported = [...supportedImages, ...supportedDocs];
+  
+  if (!allSupported.includes(m)) {
     console.warn("[analyze-material] Unsupported MIME type, defaulting to image/jpeg:", m);
     return "image/jpeg";
   }
   return m;
 }
 
-async function analyzeImageWithAI(
+async function analyzeWithAI(
   imageBase64: string,
   mimeType: string,
+  fileName: string | undefined,
   apiKey: string
 ): Promise<AnalysisResponse> {
-  const prompt = `You are Sage, an AI assistant for StudySwap. Analyze this study material image and provide:
+  const isPDF = mimeType === "application/pdf";
+  
+  const prompt = `You are Sage, an AI assistant for StudySwap. Analyze this study material${isPDF ? " (PDF document)" : " image"} and provide:
 
 1. A title MUST follow EXACTLY this format: [Class Name] [Type of Material] ([Topic])
    - Replace [Class Name] with the course/class name (e.g., "AP World History", "Calculus II", "Biology 101")
@@ -64,15 +72,20 @@ async function analyzeImageWithAI(
    - "Chemistry AP Flashcards (Stoichiometry)"
    
    INCORRECT EXAMPLES (DO NOT USE):
+   - "Google Classroom Image Link" ❌
    - "Protein Structure and Membrane Dynamics" ❌
-   - "Biology Notes" ❌
    - "Study Materials" ❌
 
 2. A brief description of what's in the material (max 150 characters)
 3. The most appropriate subject (choose from: Math, Science, English, History, Foreign Language, Computer Science, Business, Art, Music, Other)
 4. The material type (choose from: Notes, Textbook, Practice Problems, Study Guide, Flashcards, Essay, Other)
 
-CRITICAL: Your title MUST ALWAYS follow the format [Class Name] [Type of Material] ([Topic]). This is non-negotiable.
+CRITICAL INSTRUCTIONS:
+- Your title MUST ALWAYS follow the format [Class Name] [Type of Material] ([Topic]).
+- Do NOT generate generic titles like "Google Classroom" or "Document".
+- Extract the actual content/subject from the material and use it to create a meaningful title.
+- If the material shows a classroom link or screenshot, identify what subject/topic it relates to.
+- Always infer the class name from context if possible.
 
 Respond ONLY in valid JSON format (no markdown, no extra text):
 {
@@ -82,10 +95,7 @@ Respond ONLY in valid JSON format (no markdown, no extra text):
   "type": "..."
 }`;
 
-  console.log("[analyze-material] Image size:", imageBase64.length, "bytes");
-  console.log("[analyze-material] MIME type:", mimeType);
-  console.log("[analyze-material] Calling AI Gateway at:", AI_GATEWAY_URL);
-  console.log("[analyze-material] Using model:", VISION_MODEL);
+  console.log("[analyze-material] Analyzing", isPDF ? "PDF" : "image", "- Size:", imageBase64.length, "bytes");
   
   const requestBody = {
     model: VISION_MODEL,
@@ -107,10 +117,8 @@ Respond ONLY in valid JSON format (no markdown, no extra text):
       },
     ],
     max_tokens: 500,
-    temperature: 0.3, // Lower temperature for stricter format adherence
+    temperature: 0.2, // Very low temperature for strict format adherence
   };
-
-  console.log("[analyze-material] Request body size:", JSON.stringify(requestBody).length, "bytes");
   
   const response = await fetch(AI_GATEWAY_URL, {
     method: "POST",
@@ -121,144 +129,116 @@ Respond ONLY in valid JSON format (no markdown, no extra text):
     body: JSON.stringify(requestBody),
   });
 
-  console.log("[analyze-material] AI Gateway response status:", response.status);
-
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[analyze-material] AI Gateway error response:", errorText);
-    
-    let errorDetail = errorText;
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorDetail = errorJson.error?.message || errorJson.message || errorText;
-    } catch (e) {
-      // Not JSON, use raw text
-    }
-    
-    throw new Error(`AI Gateway error: ${response.status} ${response.statusText} - ${errorDetail}`);
+    console.error("[analyze-material] AI Gateway error:", response.status, errorText);
+    throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
-  console.log("[analyze-material] AI response received, choices count:", data.choices?.length);
+  const content = data.choices[0]?.message?.content;
   
-  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    console.error("[analyze-material] Invalid response structure:", data);
-    throw new Error("Invalid AI response format");
+  if (!content) {
+    throw new Error("No content in AI response");
   }
-  
-  const content = data.choices[0].message.content;
-  console.log("[analyze-material] Message content:", content);
 
-  // Parse JSON from response
+  console.log("[analyze-material] AI Response:", content);
+  
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    console.error("[analyze-material] Could not parse JSON from content:", content);
     throw new Error("Could not parse AI response as JSON");
   }
 
   const parsed = JSON.parse(jsonMatch[0]);
-  console.log("[analyze-material] Successfully parsed analysis:", parsed);
   
-  // Validate and fix title format if needed
+  // STRICT VALIDATION AND ENFORCEMENT
   let title = parsed.title || "";
+  const materialType = parsed.type || "Notes";
+  const description = parsed.description || "";
+  const subject = parsed.subject || "Other";
   
-  // Check if title matches the required format: [Class Name] [Type of Material] ([Topic])
+  // Regex to validate the exact format
   const titleRegex = /^[A-Za-z0-9\s]+\s+(Notes|Textbook|Practice Problems|Study Guide|Flashcards|Essay)\s*\([^)]+\)$/;
   
   if (!titleRegex.test(title)) {
-    console.warn("[analyze-material] Title does not match required format:", title);
-    console.warn("[analyze-material] Expected format: [Class Name] [Type of Material] ([Topic])");
+    console.warn("[analyze-material] Title does not match format:", title);
+    console.log("[analyze-material] Enforcing strict format...");
     
-    // Try to reconstruct the title if it doesn't match the format
-    const materialType = parsed.type || "Notes";
-    const description = parsed.description || "";
-    
-    // Extract potential class name from description or use a generic one
+    // Extract class name from various sources
     let className = "Study Material";
+    
+    // Try to extract from description
     if (description.includes("AP ")) {
       const apMatch = description.match(/AP\s+([A-Za-z\s]+)/i);
-      if (apMatch) className = apMatch[0];
+      if (apMatch) className = apMatch[0].trim();
+    } else if (description.includes("IB ")) {
+      const ibMatch = description.match(/IB\s+([A-Za-z\s]+)/i);
+      if (ibMatch) className = ibMatch[0].trim();
+    } else if (subject && subject !== "Other") {
+      // Use subject as fallback
+      className = `${subject} 101`;
     }
     
-    // Use the original title as the topic if it's not too long
-    const topic = title.length < 50 ? title : description.split(" ").slice(0, 3).join(" ");
+    // Extract topic from the original title or description
+    let topic = title;
+    if (title.length > 50 || title.includes("Google") || title.includes("Classroom")) {
+      // Title is too generic, extract from description
+      const words = description.split(/[\s,\.]+/).filter(w => w.length > 3);
+      topic = words.slice(0, 4).join(" ");
+    }
+    
+    // Ensure we have meaningful content
+    if (!topic || topic.length < 3) {
+      topic = "Study Material";
+    }
     
     title = `${className} ${materialType} (${topic})`;
-    console.log("[analyze-material] Reconstructed title:", title);
+    console.log("[analyze-material] Enforced title:", title);
   }
   
-  parsed.title = title;
-  return parsed;
+  return {
+    title,
+    description: description || "Study material content",
+    subject: subject || "Other",
+    type: materialType,
+  };
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
-    console.log("[analyze-material] Request received, method:", req.method);
-    
     if (req.method !== "POST") {
       return new Response(
         JSON.stringify({ error: "Method not allowed" }),
-        { 
-          status: 405, 
-          headers: { "Content-Type": "application/json", ...corsHeaders } 
-        }
+        { status: 405, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
     
-    let body;
-    try {
-      body = await req.json();
-    } catch (e) {
-      console.error("[analyze-material] Failed to parse JSON:", e);
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON in request body" }),
-        { 
-          status: 400, 
-          headers: { "Content-Type": "application/json", ...corsHeaders } 
-        }
-      );
-    }
-    
-    const { imageBase64, mimeType } = body as AnalysisRequest;
+    const body = await req.json();
+    const { imageBase64, mimeType, fileName } = body as AnalysisRequest;
 
     if (!imageBase64 || !mimeType) {
-      console.error("[analyze-material] Missing required fields");
       return new Response(
         JSON.stringify({ error: "Missing imageBase64 or mimeType" }),
-        { 
-          status: 400, 
-          headers: { "Content-Type": "application/json", ...corsHeaders } 
-        }
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      console.error("[analyze-material] LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Server configuration error: API key not found" }),
-        { 
-          status: 500, 
-          headers: { "Content-Type": "application/json", ...corsHeaders } 
-        }
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    console.log("[analyze-material] API key found, length:", apiKey.length);
-
-    // Validate base64
     const cleanedBase64 = validateBase64(imageBase64);
     const normalizedMimeType = normalizeMimeType(mimeType);
-
-    const analysis = await analyzeImageWithAI(cleanedBase64, normalizedMimeType, apiKey);
+    
+    const analysis = await analyzeWithAI(cleanedBase64, normalizedMimeType, fileName, apiKey);
 
     return new Response(JSON.stringify(analysis), {
       status: 200,
@@ -266,13 +246,9 @@ Deno.serve(async (req) => {
     });
   } catch (error: any) {
     console.error("[analyze-material] Error:", error.message);
-    console.error("[analyze-material] Error stack:", error.stack);
     return new Response(
       JSON.stringify({ error: error.message || "Analysis failed" }),
-      { 
-        status: 500, 
-        headers: { "Content-Type": "application/json", ...corsHeaders } 
-      }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });
