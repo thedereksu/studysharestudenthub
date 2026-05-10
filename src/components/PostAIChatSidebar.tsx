@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Send, Loader2, Sparkles, Maximize2, Minimize2, Search } from "lucide-react";
+import { X, Send, Loader2, Sparkles, Maximize2, Minimize2, Search, Paperclip, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,11 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  attachments?: Array<{
+    name: string;
+    type: string;
+    data: string; // base64
+  }>;
 }
 
 interface PostAIChatSidebarProps {
@@ -37,8 +42,10 @@ const PostAIChatSidebar = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [attachments, setAttachments] = useState<Array<{ name: string; type: string; data: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle keyboard visibility on mobile
   useEffect(() => {
@@ -165,9 +172,42 @@ const PostAIChatSidebar = ({
     }
   };
 
+  const handleFileAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files;
+    if (!files) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setAttachments((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            type: file.type,
+            data: base64,
+          },
+        ]);
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !user) return;
+    if ((!input.trim() && attachments.length === 0) || !user) return;
 
     const userMessage = input.trim();
     setInput("");
@@ -177,9 +217,11 @@ const PostAIChatSidebar = ({
       role: "user",
       content: userMessage,
       timestamp: new Date().toISOString(),
+      attachments: attachments.length > 0 ? attachments : undefined,
     };
 
     setMessages((prev) => [...prev, newUserMessage]);
+    setAttachments([]);
 
     try {
       console.log("[AI Chat] Invoking Edge Function...");
@@ -189,6 +231,7 @@ const PostAIChatSidebar = ({
           message: userMessage,
           frontendContext: extractedContext,
           history: messages.slice(-6), // Send last 3 turns for context
+          attachments: attachments.length > 0 ? attachments : undefined,
         },
       });
 
@@ -310,27 +353,51 @@ const PostAIChatSidebar = ({
           {messages.length === 0 || (searchQuery && filteredMessages.length === 0) ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <Sparkles className="w-8 h-8 text-primary/30 mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">
-                Ask me anything about this material!
-              </p>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                I can summarize the content or help you understand complex topics.
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? "No messages found" : "Ask Sage a question about this material"}
               </p>
             </div>
           ) : (
             <>
               {filteredMessages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                    msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none"
-                  }`}>
-                    {msg.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*]:my-1 [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>li]:my-0 [&>strong]:font-bold [&>em]:italic [&_code]:bg-black/20 [&_code]:px-1 [&_code]:rounded">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
-                    ) : (
-                      msg.content
+                <div
+                  key={idx}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`flex items-start gap-2 max-w-[80%] ${
+                      msg.role === "user" ? "flex-row-reverse" : ""
+                    }`}
+                  >
+                    {msg.role === "assistant" && (
+                      <img 
+                        src="/sage-avatar.png" 
+                        alt="Sage" 
+                        className="w-6 h-6 rounded-full border border-border bg-muted shrink-0 mt-1"
+                      />
                     )}
+                    <div
+                      className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground"
+                      }`}
+                    >
+                      {msg.content.includes("```") || msg.content.includes("#") ? (
+                        <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
+                          {msg.content}
+                        </ReactMarkdown>
+                      ) : (
+                        msg.content
+                      )}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-current/20 space-y-1">
+                          {msg.attachments.map((att, i) => (
+                            <p key={i} className="text-xs opacity-75">📎 {att.name}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -357,6 +424,26 @@ const PostAIChatSidebar = ({
         <form onSubmit={handleSendMessage} className={`p-4 border-t border-border bg-background flex-shrink-0 transition-all duration-200 ${
           keyboardHeight > 0 ? "pb-4" : "pb-20 md:pb-4"
         }`}>
+          {attachments.length > 0 && (
+            <div className="bg-muted/50 border border-border rounded-lg p-3 mb-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({attachments.length})</p>
+              <div className="space-y-2">
+                {attachments.map((att, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-background rounded p-2">
+                    <span className="text-xs truncate text-foreground">{att.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(idx)}
+                      className="p-1 hover:bg-destructive/10 rounded transition-colors"
+                      title="Remove attachment"
+                    >
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               ref={inputRef}
@@ -367,7 +454,24 @@ const PostAIChatSidebar = ({
               disabled={loading}
               className="flex-1 px-4 py-2 rounded-full border border-border bg-muted/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
             />
-            <Button type="submit" disabled={loading || !input.trim()} size="icon" className="rounded-full shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.txt,.doc,.docx"
+              onChange={handleFileAttachment}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 rounded-full border border-border hover:bg-muted transition-colors disabled:opacity-50"
+              disabled={loading}
+              title="Attach files or images"
+            >
+              <Paperclip className="w-4 h-4 text-foreground" />
+            </button>
+            <Button type="submit" disabled={loading || (!input.trim() && attachments.length === 0)} size="icon" className="rounded-full shrink-0">
               <Send className="w-4 h-4" />
             </Button>
           </div>

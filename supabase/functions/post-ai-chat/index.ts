@@ -5,6 +5,7 @@
  * 1. Service Role Key usage for DIRECT STORAGE DOWNLOADS
  * 2. DIRECT MESSAGE INJECTION (Injecting file content into the user message)
  * 3. Conversation storage in post_ai_conversations table
+ * 4. Multi-modal support for user-attached files (images, PDFs, text)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -24,11 +25,18 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface AttachmentData {
+  name: string;
+  type: string;
+  data: string; // base64 or data URL
+}
+
 interface RequestBody {
   materialId: string;
   message: string;
   frontendContext?: string;
   history?: any[];
+  attachments?: AttachmentData[];
 }
 
 async function callGateway(apiKey: string, body: any): Promise<Response> {
@@ -152,7 +160,7 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     const body = await req.json() as RequestBody;
-    const { materialId, message, frontendContext, history } = body;
+    const { materialId, message, frontendContext, history, attachments } = body;
 
     // Auth
     let userId: string | null = null;
@@ -176,6 +184,27 @@ Deno.serve(async (req) => {
 
     // 1. Context Collection
     let fileContent = frontendContext || "";
+    
+    // Process user-attached files (multi-modal)
+    if (attachments && attachments.length > 0) {
+      console.log(`[AI Chat] Processing ${attachments.length} user attachments...`);
+      for (const att of attachments) {
+        try {
+          if (att.type.startsWith("image/") || att.type === "application/pdf") {
+            // For images and PDFs, we'll pass them as vision content
+            fileContent += `\n--- ATTACHMENT: ${att.name} (${att.type}) ---\n[Binary file attached - will be processed as vision input]\n`;
+          } else if (att.type.startsWith("text/") || att.name.endsWith(".txt")) {
+            // For text files, decode and include
+            const textContent = atob(att.data.split(",")[1] || att.data);
+            fileContent += `\n--- ATTACHMENT: ${att.name} ---\n${textContent}\n`;
+          } else {
+            fileContent += `\n--- ATTACHMENT: ${att.name} (${att.type}) ---\n[File attached]\n`;
+          }
+        } catch (err) {
+          console.error(`[AI Chat] Error processing attachment ${att.name}:`, err);
+        }
+      }
+    }
     
     // If context is short, attempt backend extraction
     if (fileContent.length < 200) {
@@ -264,10 +293,44 @@ Keep responses concise, well-formatted using markdown, and always maintain your 
     }
 
     // 3. AI Call with tool-calling loop (max 4 iterations)
+    // Build user message with vision content if attachments are present
+    let userMessageContent: any = injectedMessage;
+    if (attachments && attachments.length > 0) {
+      const contentArray: any[] = [{ type: "text", text: injectedMessage }];
+      
+      for (const att of attachments) {
+        try {
+          if (att.type.startsWith("image/")) {
+            // Ensure data URL format
+            const dataUrl = att.data.startsWith("data:") ? att.data : `data:${att.type};base64,${att.data}`;
+            contentArray.push({
+              type: "image_url",
+              image_url: { url: dataUrl },
+            });
+            console.log(`[AI Chat] Added image attachment: ${att.name}`);
+          } else if (att.type === "application/pdf") {
+            // PDFs can also be passed as image_url if they're single page or first page
+            const dataUrl = att.data.startsWith("data:") ? att.data : `data:${att.type};base64,${att.data}`;
+            contentArray.push({
+              type: "image_url",
+              image_url: { url: dataUrl },
+            });
+            console.log(`[AI Chat] Added PDF attachment: ${att.name}`);
+          }
+        } catch (err) {
+          console.error(`[AI Chat] Error adding attachment to vision content:`, err);
+        }
+      }
+      
+      if (contentArray.length > 1) {
+        userMessageContent = contentArray;
+      }
+    }
+    
     const conversationMessages: any[] = [
       { role: "system", content: systemPrompt },
       ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
-      { role: "user", content: injectedMessage },
+      { role: "user", content: userMessageContent },
     ];
 
     let assistantMessage = "I couldn't generate a response.";
