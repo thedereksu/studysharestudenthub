@@ -6,6 +6,7 @@
  * 2. DIRECT MESSAGE INJECTION (Injecting file content into the user message)
  * 3. Conversation storage in post_ai_conversations table
  * 4. Multi-modal support for user-attached files (images, PDFs, text)
+ * 5. Streaming responses for real-time chat experience.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -13,7 +14,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-info, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-info, x-supabase-client-platform, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -39,14 +40,15 @@ interface RequestBody {
   attachments?: AttachmentData[];
 }
 
-async function callGateway(apiKey: string, body: any): Promise<Response> {
+async function callGateway(apiKey: string, body: any, stream: boolean = false): Promise<Response> {
+  const requestBody = { ...body, stream };
   return await fetch(AI_GATEWAY_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(requestBody),
   });
 }
 
@@ -222,25 +224,9 @@ Deno.serve(async (req) => {
     }
 
     // 2. Direct Message Injection
-    const injectedMessage = `CONTEXT FROM ATTACHED MATERIALS:
-${fileContent || "No detailed file content available."}
+    const injectedMessage = `CONTEXT FROM ATTACHED MATERIALS:\n${fileContent || "No detailed file content available."}\n\nUSER QUESTION:\n${message}\n\n(System Note: You have the complete content above. Use it to answer. Do not say you cannot read the files or that content is missing.)`;
 
-USER QUESTION:
-${message}
-
-(System Note: You have the complete content above. Use it to answer. Do not say you cannot read the files or that content is missing.)`;
-
-    const systemPrompt = `You are a helpful AI tutor named Sage for the material: "${material.title}".
-The user is asking questions about study material they uploaded. 
-You have been provided with the COMPLETE text content of the material directly in the user's message context.
-
-IMPORTANT: You have access to a "web_search" tool that performs real-time internet searches.
-- For material-specific questions, use the attached file content above as your primary source.
-- If the user's question requires information NOT found in the attached files (current events, external facts, definitions, broader context, recent updates, or any topic beyond the material), you MUST call the web_search tool to retrieve up-to-date information before answering.
-- You may call web_search multiple times with different queries if needed.
-- After searching, synthesize the results into a clear answer and cite source URLs inline when relevant.
-
-Keep responses concise, well-formatted using markdown, and always maintain your helpful, academic personality.`;
+    const systemPrompt = `You are a helpful AI tutor named Sage for the material: "${material.title}".\nThe user is asking questions about study material they uploaded. \nYou have been provided with the COMPLETE text content of the material directly in the user's message context.\n\nIMPORTANT: You have access to a "web_search" tool that performs real-time internet searches.\n- For material-specific questions, use the attached file content above as your primary source.\n- If the user's question requires information NOT found in the attached files (current events, external facts, definitions, broader context, recent updates, or any topic beyond the material), you MUST call the web_search tool to retrieve up-to-date information before answering.\n- You may call web_search multiple times with different queries if needed.\n- After searching, synthesize the results into a clear answer and cite source URLs inline when relevant.\n\nKeep responses concise, well-formatted using markdown, and always maintain your helpful, academic personality.`;
 
     // Web search tool definition (executed via DuckDuckGo HTML — no API key required)
     const tools = [
@@ -277,7 +263,7 @@ Keep responses concise, well-formatted using markdown, and always maintain your 
         const resultRegex = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
         let m;
         while ((m = resultRegex.exec(html)) !== null && results.length < 6) {
-          const stripTags = (s: string) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+          const stripTags = (s: string) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '\"').replace(/&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
           let url = m[1];
           // DuckDuckGo wraps URLs in /l/?uddg=...
           const uddg = url.match(/[?&]uddg=([^&]+)/);
@@ -333,31 +319,88 @@ Keep responses concise, well-formatted using markdown, and always maintain your 
       { role: "user", content: userMessageContent },
     ];
 
-    let assistantMessage = "I couldn't generate a response.";
+    let assistantMessage = "";
+    let toolCallOccurred = false;
+
     for (let iter = 0; iter < 4; iter++) {
       const response = await callGateway(lovableApiKey, {
         model: VISION_MODEL,
         messages: conversationMessages,
         tools,
         max_tokens: 8192,
-      });
+      }, true); // Request streaming
 
       if (!response.ok) {
         const err = await response.text();
         throw new Error(`AI Gateway Error: ${err}`);
       }
 
-      const data = await response.json();
-      const choice = data.choices?.[0];
-      const msg = choice?.message;
-      if (!msg) break;
+      if (!response.body) {
+        throw new Error("No response body from AI Gateway");
+      }
 
-      const toolCalls = msg.tool_calls;
-      if (toolCalls && toolCalls.length > 0) {
-        // Append assistant message with tool calls
-        conversationMessages.push(msg);
-        // Execute each tool call
-        for (const call of toolCalls) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentToolCalls: any[] = [];
+      let messageContentBuffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE messages
+        let lastIndex = 0;
+        let nextIndex = buffer.indexOf('data: ');
+        while (nextIndex !== -1) {
+          const sseMessage = buffer.substring(lastIndex, nextIndex);
+          if (sseMessage.trim().length > 0) {
+            try {
+              const json = JSON.parse(sseMessage.replace('data: ', ''));
+              const choice = json.choices?.[0];
+              const delta = choice?.delta;
+
+              if (delta?.tool_calls && delta.tool_calls.length > 0) {
+                toolCallOccurred = true;
+                currentToolCalls.push(...delta.tool_calls);
+              } else if (delta?.content) {
+                messageContentBuffer += delta.content;
+              }
+            } catch (e) {
+              console.warn("Failed to parse SSE chunk:", sseMessage, e);
+            }
+          }
+          lastIndex = nextIndex + 'data: '.length;
+          nextIndex = buffer.indexOf('data: ', lastIndex);
+        }
+        buffer = buffer.substring(lastIndex);
+      }
+
+      // Process any remaining buffer content
+      if (buffer.trim().length > 0) {
+        try {
+          const json = JSON.parse(buffer.replace('data: ', ''));
+          const choice = json.choices?.[0];
+          const delta = choice?.delta;
+
+          if (delta?.tool_calls && delta.tool_calls.length > 0) {
+            toolCallOccurred = true;
+            currentToolCalls.push(...delta.tool_calls);
+          } else if (delta?.content) {
+            messageContentBuffer += delta.content;
+          }
+        } catch (e) {
+          console.warn("Failed to parse final SSE chunk:", buffer, e);
+        }
+      }
+
+      assistantMessage = messageContentBuffer;
+
+      if (toolCallOccurred && currentToolCalls.length > 0) {
+        conversationMessages.push({ role: "assistant", content: assistantMessage, tool_calls: currentToolCalls });
+        for (const call of currentToolCalls) {
           if (call.function?.name === "web_search") {
             let args: any = {};
             try { args = JSON.parse(call.function.arguments || "{}"); } catch { /* noop */ }
@@ -375,13 +418,24 @@ Keep responses concise, well-formatted using markdown, and always maintain your 
             });
           }
         }
-        // Loop again so the model can use the tool results
-        continue;
+        // Reset for next iteration
+        toolCallOccurred = false;
+        currentToolCalls = [];
+        assistantMessage = "";
+        continue; // Loop again so the model can use the tool results
+      } else {
+        break; // No tool calls or content received, exit loop
       }
-
-      assistantMessage = msg.content || assistantMessage;
-      break;
     }
+
+    // Save conversation history (only the final assistant message)
+    const updatedMessages = [...history || [], { role: "user", content: message }, { role: "assistant", content: assistantMessage }];
+    await supabaseAdmin.from("post_ai_conversations").upsert({
+      material_id: materialId,
+      user_id: userId,
+      messages: updatedMessages as any,
+      updated_at: new Date().toISOString(),
+    });
 
     return new Response(JSON.stringify({ success: true, message: assistantMessage }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 

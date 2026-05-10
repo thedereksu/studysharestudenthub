@@ -224,8 +224,22 @@ const PostAIChatSidebar = ({
     setAttachments([]);
 
     try {
-      console.log("[AI Chat] Invoking Edge Function...");
-      const { data, error } = await supabase.functions.invoke("post-ai-chat", {
+      console.log("[AI Chat] Invoking Edge Function with streaming...");
+      
+      // Create a placeholder for the assistant message
+      const assistantMessageId = Date.now();
+      let streamedContent = "";
+      
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+
+      const response = await supabase.functions.invoke("post-ai-chat", {
         body: {
           materialId,
           message: userMessage,
@@ -235,27 +249,35 @@ const PostAIChatSidebar = ({
         },
       });
 
-      if (error) throw error;
+      if (response.error) throw response.error;
 
-      if (data?.success) {
-        const newAssistantMessage: ChatMessage = {
-          role: "assistant",
-          content: data.message,
-          timestamp: new Date().toISOString(),
-        };
-
-        const updatedMessages = [...messages, newUserMessage, newAssistantMessage];
-        setMessages(updatedMessages);
-
-        // Save conversation history
-        await supabase.from("post_ai_conversations").upsert({
-          material_id: materialId,
-          user_id: user.id,
-          messages: updatedMessages as any,
-          updated_at: new Date().toISOString(),
-        });
+      if (response.data?.success) {
+        streamedContent = response.data.message;
+        
+        // Simulate streaming by updating content character by character
+        const streamingSpeed = 10; // milliseconds per character
+        let currentIndex = 0;
+        
+        const streamInterval = setInterval(() => {
+          if (currentIndex < streamedContent.length) {
+            currentIndex++;
+            const displayContent = streamedContent.substring(0, currentIndex);
+            
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastMsg = updated[updated.length - 1];
+              if (lastMsg && lastMsg.role === "assistant") {
+                lastMsg.content = displayContent;
+              }
+              return updated;
+            });
+          } else {
+            clearInterval(streamInterval);
+            setLoading(false);
+          }
+        }, streamingSpeed);
       } else {
-        throw new Error(data?.error || "Failed to get AI response");
+        throw new Error(response.data?.error || "Failed to get AI response");
       }
     } catch (err: any) {
       console.error("[AI Chat] Chat error:", err);
@@ -264,7 +286,6 @@ const PostAIChatSidebar = ({
         description: sanitizeError(err),
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
