@@ -156,7 +156,13 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const accepted = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      const accepted = [
+        "image/jpeg", "image/png", "image/webp", "image/gif", // Images
+        "application/pdf", // PDFs
+        "text/plain", // Text files
+        "application/msword", // .doc
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+      ];
       if (!accepted.includes(file.type)) {
         toast({
           title: "Unsupported format",
@@ -223,7 +229,7 @@ const MagicUpload = ({ onAnalysisComplete, onFilesSelected }: MagicUploadProps) 
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         onChange={handleFileUpload}
         className="hidden"
       />

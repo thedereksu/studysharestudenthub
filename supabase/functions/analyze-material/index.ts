@@ -41,7 +41,8 @@ function normalizeMimeType(mime: string): string {
   // Support images and PDFs
   const supportedImages = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   const supportedDocs = ["application/pdf"];
-  const allSupported = [...supportedImages, ...supportedDocs];
+  const supportedText = ["text/plain"]; // Add text/plain support
+  const allSupported = [...supportedImages, ...supportedDocs, ...supportedText];
   
   if (!allSupported.includes(m)) {
     console.warn("[analyze-material] Unsupported MIME type, defaulting to image/jpeg:", m);
@@ -51,14 +52,21 @@ function normalizeMimeType(mime: string): string {
 }
 
 async function analyzeWithAI(
-  imageBase64: string,
+  fileBase64: string,
   mimeType: string,
   fileName: string | undefined,
   apiKey: string
 ): Promise<AnalysisResponse> {
   const isPDF = mimeType === "application/pdf";
+  const isText = mimeType === "text/plain";
+
+  let textContent: string | undefined;
+  if (isText) {
+    textContent = new TextDecoder().decode(Uint8Array.from(atob(fileBase64), c => c.charCodeAt(0)));
+    console.log("[analyze-material] Decoded text content length:", textContent.length);
+  }
   
-  const prompt = `You are Sage, an AI assistant for StudySwap. Analyze this study material${isPDF ? " (PDF document)" : " image"} and provide:
+  const prompt = `You are Sage, an AI assistant for StudySwap. Analyze this study material${isPDF ? " (PDF document)" : isText ? " (text document)" : " (image)"} and provide:
 
 1. A title MUST follow EXACTLY this format: [Class Name] [Type of Material] ([Topic])
    - CRITICAL: The format is MANDATORY and non-negotiable.
@@ -104,28 +112,35 @@ Respond ONLY in valid JSON format (no markdown, no extra text):
 
   console.log("[analyze-material] Analyzing", isPDF ? "PDF" : "image", "- Size:", imageBase64.length, "bytes");
   
-  const requestBody = {
+  const requestBody: any = {
     model: VISION_MODEL,
     messages: [
       {
         role: "user",
-        content: [
-          {
-            type: "image_url",
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`,
-            },
-          },
-          {
-            type: "text",
-            text: prompt,
-          },
-        ],
+        content: [],
       },
     ],
     max_tokens: 500,
     temperature: 0.2, // Very low temperature for strict format adherence
   };
+
+  if (isText && textContent) {
+    requestBody.messages[0].content.push({
+      type: "text",
+      text: `File Name: ${fileName || 'untitled'}\n\n${textContent}\n\n${prompt}`,
+    });
+  } else {
+    requestBody.messages[0].content.push({
+      type: "image_url",
+      image_url: {
+        url: `data:${mimeType};base64,${fileBase64}`,
+      },
+    });
+    requestBody.messages[0].content.push({
+      type: "text",
+      text: prompt,
+    });
+  }
   
   const response = await fetch(AI_GATEWAY_URL, {
     method: "POST",
@@ -241,11 +256,11 @@ Deno.serve(async (req) => {
     }
     
     const body = await req.json();
-    const { imageBase64, mimeType, fileName } = body as AnalysisRequest;
+    const { fileBase64, mimeType, fileName } = body as AnalysisRequest;
 
-    if (!imageBase64 || !mimeType) {
+    if (!fileBase64 || !mimeType) {
       return new Response(
-        JSON.stringify({ error: "Missing imageBase64 or mimeType" }),
+        JSON.stringify({ error: "Missing fileBase64 or mimeType" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -258,7 +273,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const cleanedBase64 = validateBase64(imageBase64);
+    const cleanedBase64 = validateBase64(fileBase64);
     const normalizedMimeType = normalizeMimeType(mimeType);
     
     const analysis = await analyzeWithAI(cleanedBase64, normalizedMimeType, fileName, apiKey);
