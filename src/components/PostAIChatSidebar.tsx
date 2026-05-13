@@ -88,11 +88,11 @@ const PostAIChatSidebar = ({
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("credits")
+        .select("credit_balance")
         .eq("id", user.id)
         .single();
       if (error) throw error;
-      setCredits(data.credits);
+      setCredits(data.credit_balance);
     } catch (error) {
       console.error("Error fetching credits:", error);
       toast({
@@ -285,11 +285,8 @@ const PostAIChatSidebar = ({
         throw response.error;
       }
 
-      // Update credits from response header
-      const newCredits = response.headers?.get("X-Current-Credits");
-      if (newCredits) {
-        setCredits(parseInt(newCredits, 10));
-      }
+      // Refresh credits after response
+      fetchCredits();
 
       if (response.data?.success) {
         streamedContent = response.data.message;
@@ -451,9 +448,9 @@ const PostAIChatSidebar = ({
                       }`}
                     >
                       {msg.content.includes("```") || msg.content.includes("#") ? (
-                        <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
-                          {msg.content}
-                        </ReactMarkdown>
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
                       ) : (
                         msg.content
                       )}

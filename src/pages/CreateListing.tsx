@@ -169,7 +169,7 @@ const CreateListing = () => {
       if (insertError) throw insertError;
 
       // Reward 5 credits for posting a material
-      const { error: creditError } = await supabase.rpc("add_credits", { user_id: user.id, amount: 5 });
+      const { error: creditError } = await supabase.rpc("add_stripe_credits", { p_user_id: user.id, p_credits: 5 });
       if (creditError) console.error("Error rewarding credits:", creditError);
 
       toast({ 
