@@ -540,7 +540,7 @@ const PostAIChatSidebar = ({
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground/50 mt-1 text-center">
-            AI can make mistakes. Verify important info. (1 credit per question)
+                AI can make mistakes. Verify important info. (1 credit per question, 2 credits with attachments)
           </p>
         </form>
       </div>

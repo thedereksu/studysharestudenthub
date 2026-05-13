@@ -20,6 +20,8 @@ const corsHeaders = {
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const VISION_MODEL = "google/gemini-2.5-flash";
 
+
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -149,6 +151,9 @@ async function extractTextFromFile(
 }
 
 Deno.serve(async (req) => {
+
+
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -163,6 +168,7 @@ Deno.serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     const body = await req.json() as RequestBody;
     const { materialId, message, frontendContext, history, attachments } = body;
+    let visionInputs: any[] = [];
 
     // Auth
     let userId: string | null = null;
@@ -206,8 +212,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Insufficient credits to use Sage AI. Post a material to earn more!" }), { status: 402, headers: corsHeaders });
     }
 
-    // Deduct 1 credit for this AI interaction
-    currentCredits -= 1;
+    // Determine credits to deduct
+    let creditsToDeduct = 1;
+    if (attachments && attachments.length > 0) {
+      creditsToDeduct = 2; // More credits for multi-modal prompts
+    }
+
+    if (currentCredits < creditsToDeduct) {
+      return new Response(JSON.stringify({ error: "Insufficient credits to use Sage AI with attachments. Post a material to earn more!" }), { status: 402, headers: corsHeaders });
+    }
+
+    currentCredits -= creditsToDeduct;
     await supabaseAdmin
       .from("profiles")
       .update({ credits: currentCredits })
@@ -226,6 +241,29 @@ Deno.serve(async (req) => {
 
     if (!material) return new Response(JSON.stringify({ error: "Material not found" }), { status: 404, headers: responseHeaders });
 
+    const systemPrompt = `You are a helpful AI tutor named Sage for the material: "${material.title}".\nThe user is asking questions about study material they uploaded. \nYou have been provided with the COMPLETE text content of the material directly in the user\\'s message context.\n\nIMPORTANT: You have access to a "web_search" tool that performs real-time internet searches.\n- For material-specific questions, use the attached file content above as your primary source.\n- If the user\\'s question requires information NOT found in the attached files (current events, external facts, definitions, broader context, recent updates, or any topic beyond the material), you MUST call the web_search tool to retrieve up-to-date information before answering.\n- You may call web_search multiple times with different queries if needed.\n- After searching, synthesize the results into a clear answer and cite source URLs inline when relevant.\n\nKeep responses concise, well-formatted using markdown, and always maintain your helpful, academic personality.`;
+
+    // Web search tool definition (executed via DuckDuckGo HTML — no API key required)
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "web_search",
+          description: "Search the web for current information or facts.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query.",
+              },
+            },
+            required: ["query"],
+          },
+        },
+      },
+    ];
+
     // 1. Context Collection
     let fileContent = frontendContext || "";
     
@@ -235,9 +273,10 @@ Deno.serve(async (req) => {
       for (const att of attachments) {
         try {
           if (att.type.startsWith("image/") || att.type === "application/pdf") {
-            // For images and PDFs, we'll pass them as vision content
-            fileContent += `\n--- ATTACHMENT: ${att.name} (${att.type}) ---\n[Binary file attached - will be processed as vision input]\n`;
-          } else if (att.type.startsWith("text/") || att.name.endsWith(".txt")) {
+            // For images and PDFs, we\'ll convert them to data URLs for vision input
+            // The frontend sends data URLs directly, so we just use att.data
+            visionInputs.push({ type: "image_url", image_url: { url: att.data } });
+            // Do not add to fileContent, as it\'s handled by visionInputs         } else if (att.type.startsWith("text/") || att.name.endsWith(".txt")) {
             // For text files, decode and include
             const textContent = atob(att.data.split(",")[1] || att.data);
             fileContent += `\n--- ATTACHMENT: ${att.name} ---\n${textContent}\n`;
@@ -265,23 +304,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Direct Message Injection
-    const injectedMessage = `CONTEXT FROM ATTACHED MATERIALS:\n${fileContent || "No detailed file content available."}\n\nUSER QUESTION:\n${message}\n\n(System Note: You have the complete content above. Use it to answer. Do not say you cannot read the files or that content is missing.)`;
+    // Prepare content for the AI model
+    const aiContent: any[] = [];
 
-    const systemPrompt = `You are a helpful AI tutor named Sage for the material: "${material.title}".\nThe user is asking questions about study material they uploaded. \nYou have been provided with the COMPLETE text content of the material directly in the user's message context.\n\nIMPORTANT: You have access to a "web_search" tool that performs real-time internet searches.\n- For material-specific questions, use the attached file content above as your primary source.\n- If the user's question requires information NOT found in the attached files (current events, external facts, definitions, broader context, recent updates, or any topic beyond the material), you MUST call the web_search tool to retrieve up-to-date information before answering.\n- You may call web_search multiple times with different queries if needed.\n- After searching, synthesize the results into a clear answer and cite source URLs inline when relevant.\n\nKeep responses concise, well-formatted using markdown, and always maintain your helpful, academic personality.`;
+    // Add text context first
+    if (fileContent) {
+      aiContent.push({ type: "text", text: `CONTEXT FROM ATTACHED MATERIALS:\n${fileContent}\n` });
+    }
 
-    // Web search tool definition (executed via DuckDuckGo HTML — no API key required)
-    const tools = [
-      {
-        type: "function",
-        function: {
-          name: "web_search",
-          description: "Search the public internet for up-to-date information on any topic. Use this whenever the user asks about something not contained in the attached material, or when current/external facts are needed.",
-          parameters: {
-            type: "object",
-            properties: {
-              query: {
-                type: "string",
+    // Add user\'s message
+    aiContent.push({ type: "text", text: `USER QUESTION:\n${message}\n` });
+
+    // Add vision inputs (images/PDFs from attachments)
+    for (const visionInput of visionInputs) {
+      aiContent.push(visionInput);
+    }
+
+    // Add system note
+    aiContent.push({ type: "text", text: "(System Note: You have the complete content above. Use it to answer the user\'s question. Be concise and helpful.)" });
+
+    // Construct the messages array for the AI gateway
+    const gatewayMessages = [
+      { role: "system", content: systemPrompt },
+      ...history.map((msg: any) => ({ role: msg.role, content: msg.content })),
+      { role: "user", content: aiContent },
+    ];
+
+    // Call AI Gateway
+    const aiResp = await callGateway(lovableApiKey, {
+      model: VISION_MODEL,
+      messages: gatewayMessages,
+      tools: tools,
+      max_tokens: 8192,
+    }, true); // StreamDeno.serve(async (req) => {type: "string",
                 description: "The search query. Be specific and concise.",
               },
             },
