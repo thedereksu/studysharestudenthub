@@ -175,6 +175,48 @@ Deno.serve(async (req) => {
 
     if (!userId) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
+    // 0. Credit Check and Deduction
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("credits, last_credit_refresh")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error("[AI Chat] Error fetching user profile:", profileError);
+      return new Response(JSON.stringify({ error: "User profile not found" }), { status: 404, headers: corsHeaders });
+    }
+
+    let currentCredits = profile.credits;
+    let lastRefresh = new Date(profile.last_credit_refresh);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day
+
+    // Refresh daily credits if a new day has passed since last refresh
+    if (lastRefresh < today) {
+      currentCredits = Math.min(currentCredits + 5, 50); // Add 5 daily, cap at 50 for example
+      lastRefresh = today;
+      await supabaseAdmin
+        .from("profiles")
+        .update({ credits: currentCredits, last_credit_refresh: lastRefresh.toISOString().split('T')[0] })
+        .eq("id", userId);
+    }
+
+    if (currentCredits < 1) {
+      return new Response(JSON.stringify({ error: "Insufficient credits to use Sage AI. Post a material to earn more!" }), { status: 402, headers: corsHeaders });
+    }
+
+    // Deduct 1 credit for this AI interaction
+    currentCredits -= 1;
+    await supabaseAdmin
+      .from("profiles")
+      .update({ credits: currentCredits })
+      .eq("id", userId);
+
+    // Pass current credits to the frontend for display
+    const responseHeaders = { ...corsHeaders, "X-Current-Credits": currentCredits.toString() };
+
+
     // Get Material
     const { data: material } = await supabaseAdmin
       .from("materials")
@@ -182,7 +224,7 @@ Deno.serve(async (req) => {
       .eq("id", materialId)
       .single();
 
-    if (!material) return new Response(JSON.stringify({ error: "Material not found" }), { status: 404, headers: corsHeaders });
+    if (!material) return new Response(JSON.stringify({ error: "Material not found" }), { status: 404, headers: responseHeaders });
 
     // 1. Context Collection
     let fileContent = frontendContext || "";
@@ -436,9 +478,8 @@ Deno.serve(async (req) => {
       messages: updatedMessages as any,
       updated_at: new Date().toISOString(),
     });
-
-    return new Response(JSON.stringify({ success: true, message: assistantMessage }), { 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    return new Response(JSON.stringify(analysis), {
+      headers: responseHeaders,
     });
 
   } catch (err) {
