@@ -335,7 +335,7 @@ const PostAIChatSidebar = ({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className={`fixed inset-y-0 right-0 ml-auto w-full bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96 transition-all duration-300 ${
+      <div className={`fixed inset-y-0 right-0 ml-auto w-full bg-card border-l border-border shadow-lg flex flex-col animate-in slide-in-from-right-96 transition-all duration-300 bottom-16 md:bottom-0 ${
         isExpanded ? "max-w-4xl" : "max-w-sm"
       }`}>
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
@@ -489,7 +489,7 @@ const PostAIChatSidebar = ({
         </div>
 
         <form onSubmit={handleSendMessage} className={`p-4 border-t border-border bg-background flex-shrink-0 transition-all duration-200 ${
-          keyboardHeight > 0 ? "pb-4" : "pb-20 md:pb-4"
+          keyboardHeight > 0 ? "pb-4" : "pb-4"
         }`}>
           {attachments.length > 0 && (
             <div className="bg-muted/50 border border-border rounded-lg p-3 mb-3">
@@ -544,201 +544,6 @@ const PostAIChatSidebar = ({
           </div>
           <p className="text-[10px] text-muted-foreground/50 mt-1 text-center">
             AI can make mistakes. Verify important info. (1 credit per question)
-          </p>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export default PostAIChatSidebar;
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                Sage
-                <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full font-medium uppercase tracking-wider">AI</span>
-              </h2>
-              <p className="text-xs text-muted-foreground truncate">
-                {loading ? "Sage is thinking..." : materialTitle}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
-              className="p-1.5 rounded-full hover:bg-muted transition-colors"
-              title="Search messages"
-            >
-              <Search className="w-5 h-5 text-foreground" />
-            </button>
-            <button 
-              onClick={() => setIsExpanded(!isExpanded)} 
-              className="p-1.5 rounded-full hover:bg-muted transition-colors"
-              title={isExpanded ? "Collapse" : "Expand"}
-            >
-              {isExpanded ? (
-                <Minimize2 className="w-5 h-5 text-foreground" />
-              ) : (
-                <Maximize2 className="w-5 h-5 text-foreground" />
-              )}
-            </button>
-            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors">
-              <X className="w-5 h-5 text-foreground" />
-            </button>
-          </div>
-        </div>
-
-        {isSearchOpen && (
-          <div className="px-4 py-3 border-b border-border bg-muted/50">
-            <input
-              type="text"
-              placeholder="Search messages..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              autoFocus
-            />
-            {searchQuery && filteredMessages.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Found {filteredMessages.length} of {messages.length} messages
-              </p>
-            )}
-            {searchQuery && filteredMessages.length === 0 && messages.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                No messages match your search
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 || (searchQuery && filteredMessages.length === 0) ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-4">
-              <Sparkles className="w-8 h-8 text-primary/30 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                {searchQuery ? "No messages found" : "Ask Sage a question about this material"}
-              </p>
-            </div>
-          ) : (
-            <>
-              {filteredMessages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`flex items-start gap-2 max-w-[80%] ${
-                      msg.role === "user" ? "flex-row-reverse" : ""
-                    }`}
-                  >
-                    {msg.role === "assistant" && (
-                      <img 
-                        src="/sage-avatar.png" 
-                        alt="Sage" 
-                        className="w-6 h-6 rounded-full border border-border bg-muted shrink-0 mt-1"
-                      />
-                    )}
-                    <div
-                      className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      }`}
-                    >
-                      {msg.content.includes("```") || msg.content.includes("#") ? (
-                        <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
-                          {msg.content}
-                        </ReactMarkdown>
-                      ) : (
-                        msg.content
-                      )}
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-current/20 space-y-1">
-                          {msg.attachments.map((att, i) => (
-                            <p key={i} className="text-xs opacity-75">📎 {att.name}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="flex items-start gap-2 max-w-[80%]">
-                <img 
-                  src="/sage-avatar.png" 
-                  alt="Sage" 
-                  className="w-6 h-6 rounded-full border border-border bg-muted shrink-0 mt-1"
-                />
-                <div className="bg-muted rounded-2xl px-4 py-2 text-sm text-foreground flex items-center gap-2 shadow-sm">
-                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                  Sage is thinking...
-                </div>
-              </div>
-            </div>
-          )}
-              <div ref={messagesEndRef} />
-            </>
-          )}
-        </div>
-
-        <form onSubmit={handleSendMessage} className={`p-4 border-t border-border bg-background flex-shrink-0 transition-all duration-200 ${
-          keyboardHeight > 0 ? "pb-4" : "pb-20 md:pb-4"
-        }`}>
-          {attachments.length > 0 && (
-            <div className="bg-muted/50 border border-border rounded-lg p-3 mb-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({attachments.length})</p>
-              <div className="space-y-2">
-                {attachments.map((att, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-background rounded p-2">
-                    <span className="text-xs truncate text-foreground">{att.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(idx)}
-                      className="p-1 hover:bg-destructive/10 rounded transition-colors"
-                      title="Remove attachment"
-                    >
-                      <Trash2 className="w-3 h-3 text-destructive" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question..."
-              disabled={loading}
-              className="flex-1 px-4 py-2 rounded-full border border-border bg-muted/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,.pdf,.txt,.doc,.docx"
-              onChange={handleFileAttachment}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2 rounded-full border border-border hover:bg-muted transition-colors disabled:opacity-50"
-              disabled={loading}
-              title="Attach files or images"
-            >
-              <Paperclip className="w-4 h-4 text-foreground" />
-            </button>
-            <Button type="submit" disabled={loading || (!input.trim() && attachments.length === 0)} size="icon" className="rounded-full shrink-0">
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-          <p className="text-[10px] text-muted-foreground/50 mt-1 text-center">
-            AI can make mistakes. Verify important info.
           </p>
         </form>
       </div>
