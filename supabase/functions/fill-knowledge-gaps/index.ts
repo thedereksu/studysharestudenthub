@@ -18,18 +18,16 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 1. Identify a subject/class that needs content
-    // For this implementation, we'll pick a random subject from a predefined list
-    // In a more advanced version, this would query the DB for empty subjects
-    const subjects = [
-      { subject: "Biology", class: "Biology 101", topic: "Cellular Respiration" },
-      { subject: "History", class: "World History", topic: "The Industrial Revolution" },
-      { subject: "Computer Science", class: "Intro to CS", topic: "Data Structures" },
-      { subject: "Mathematics", class: "Calculus I", topic: "Derivatives" },
-      { subject: "Psychology", class: "Intro to Psychology", topic: "Cognitive Development" }
+    // Hardcode AP Chemistry topics for this specific request
+    const apChemTopics = [
+      { subject: "Chemistry", class: "AP Chemistry", topic: "Thermodynamics" },
+      { subject: "Chemistry", class: "AP Chemistry", topic: "Chemical Equilibrium" },
+      { subject: "Chemistry", class: "AP Chemistry", topic: "Acid-Base Reactions" },
+      { subject: "Chemistry", class: "AP Chemistry", topic: "Electrochemistry" },
+      { subject: "Chemistry", class: "AP Chemistry", topic: "Kinetics" },
     ];
     
-    const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+    const randomApChemTopic = apChemTopics[Math.floor(Math.random() * apChemTopics.length)];
 
     // 2. Generate content using Gemini
     const genAI = new GoogleGenerativeAI(Deno.env.get("GEMINI_API_KEY") || "");
@@ -37,11 +35,13 @@ serve(async (req) => {
 
     const prompt = `
       You are Sage, an expert academic AI tutor for StudySwap.
-      Your task is to generate a high-quality, foundational "Quick Notes" study guide for a university-level course.
+      Your task is to generate a high-quality, foundational "Quick Notes" study guide for an AP Chemistry course.
+      The content should be concise but informative, suitable as a quick reference guide for students.
+      Ensure the content does not overlap with basic chemistry topics already covered in general chemistry.
       
-      Subject: ${randomSubject.subject}
-      Class: ${randomSubject.class}
-      Topic: ${randomSubject.topic}
+      Subject: ${randomApChemTopic.subject}
+      Class: ${randomApChemTopic.class}
+      Topic: ${randomApChemTopic.topic}
       
       Format the output as a clean, well-structured Markdown document.
       Include:
@@ -49,8 +49,6 @@ serve(async (req) => {
       2. Key concepts and definitions (bullet points).
       3. Important processes or formulas (if applicable).
       4. A short summary paragraph.
-      
-      Keep it concise but informative, acting as a quick reference guide for students.
     `;
 
     const result = await model.generateContent(prompt);
@@ -58,7 +56,7 @@ serve(async (req) => {
     const generatedContent = response.text();
 
     // 3. Create a text file from the content
-    const fileName = `${randomSubject.class.replace(/\s+/g, '_')}_${randomSubject.topic.replace(/\s+/g, '_')}_QuickNotes.txt`;
+    const fileName = `${randomApChemTopic.class.replace(/\s+/g, '_')}_${randomApChemTopic.topic.replace(/\s+/g, '_')}_QuickNotes.txt`;
     const fileContent = new TextEncoder().encode(generatedContent);
 
     // 4. Upload to Supabase Storage
@@ -79,36 +77,26 @@ serve(async (req) => {
       .getPublicUrl(`sage-generated/${fileName}`);
 
     // 5. Insert record into materials table
-    // We need a system user ID for Sage. For now, we'll use a placeholder or the first admin user.
-    // Ideally, there should be a dedicated 'Sage AI' user account in auth.users.
-    // Let's try to find an admin user or just use a dummy UUID if constraints allow (unlikely due to FK).
-    // For this script, we will query for a user to act as the 'uploader'.
-    
-    const { data: users, error: usersError } = await supabaseClient.auth.admin.listUsers({
-      page: 1,
-      perPage: 1
-    });
-    
-    if (usersError || !users || users.users.length === 0) {
-        throw new Error("Could not find a user to assign as the uploader.");
-    }
-    
-    const systemUserId = users.users[0].id;
+    // We need a system user ID for Sage. For this, we will use a hardcoded UUID
+    // that corresponds to a 'Sage AI' user in the auth.users table.
+    // In a real scenario, this user would be created and managed.
+    const SAGE_AI_USER_ID = "00000000-0000-0000-0000-000000000001"; // Placeholder UUID for Sage AI
 
-    const title = `${randomSubject.class} Quick Notes (${randomSubject.topic})`;
-    const description = `Sage-Generated Foundational Content: A quick reference study guide covering key concepts of ${randomSubject.topic} for ${randomSubject.class}.`;
+    const title = `${randomApChemTopic.class} Quick Notes (${randomApChemTopic.topic})`;
+    const description = `Sage-Generated Foundational Content: A quick reference study guide covering key concepts of ${randomApChemTopic.topic} for ${randomApChemTopic.class}.`;
 
     const { data: insertData, error: insertError } = await supabaseClient
       .from("materials")
       .insert({
-        uploader_id: systemUserId,
+        uploader_id: SAGE_AI_USER_ID,
         title: title,
-        subject: randomSubject.subject,
+        subject: randomApChemTopic.subject,
         type: "Study Guide",
         exchange_type: "Free",
         description: description,
         file_url: publicUrlData.publicUrl,
         file_type: "text/plain",
+        is_ai_generated: true, // Set the new flag to true
       })
       .select()
       .single();

@@ -7,6 +7,7 @@ import {
   GraduationCap,
   File,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getSignedUrls } from "@/lib/storage";
@@ -126,7 +127,12 @@ const ListingCard = ({ material }: { material: Material }) => {
             ⭐ Promoted
           </span>
         )}
-        {(material as any).teacher_approved && !isPromoted && (
+        {(material as any).is_ai_generated && (
+          <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 border border-purple-500/25 flex items-center gap-0.5">
+            <Sparkles className="w-3 h-3" /> AI Generated
+          </span>
+        )}
+        {(material as any).teacher_approved && !isPromoted && !(material as any).is_ai_generated && (
           <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 border border-emerald-500/25 flex items-center gap-0.5">
             <ShieldCheck className="w-3 h-3" /> Approved
           </span>
@@ -149,7 +155,7 @@ const ListingCard = ({ material }: { material: Material }) => {
         </h3>
         <div className="flex items-center justify-between mt-2">
           <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-            {material.profiles?.name || "Anonymous"}
+            {(material as any).is_ai_generated ? "Sage" : (material.profiles?.name || "Anonymous")}
             {material.profiles?.has_featured_badge && (
               <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary">⭐</span>
             )}
