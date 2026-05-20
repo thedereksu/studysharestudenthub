@@ -151,6 +151,21 @@ const CreateListing = () => {
         });
       }
 
+      // Check if user is Sage (either by email or profile name)
+      const isSageEmail = user.email === "sage@studyswap.ai";
+      
+      let isSageProfile = false;
+      if (!isSageEmail) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .single();
+        isSageProfile = profile?.name === "Sage";
+      }
+
+      const isAI = isSageEmail || isSageProfile;
+
       // Create ONE material record with all files
       const primaryFile = uploadedFiles[0];
       const { error: insertError } = await supabase.from("materials").insert({
@@ -164,6 +179,7 @@ const CreateListing = () => {
         file_type: primaryFile.file_type,
         files: uploadedFiles,
         ownership_confirmed: true,
+        is_ai_generated: isAI,
       });
 
       if (insertError) throw insertError;

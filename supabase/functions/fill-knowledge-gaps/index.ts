@@ -24,7 +24,7 @@ serve(async (req) => {
       { subject: "Chemistry", class: "AP Chemistry", topic: "Chemical Equilibrium" },
       { subject: "Chemistry", class: "AP Chemistry", topic: "Acid-Base Reactions" },
       { subject: "Chemistry", class: "AP Chemistry", topic: "Electrochemistry" },
-      { subject: "Chemistry", class: "AP Chemistry", topic: "Kinetics" },
+      { subject: "Chemistry", class: "AP Chemistry", topic: "Kinetics" }
     ];
     
     const randomApChemTopic = apChemTopics[Math.floor(Math.random() * apChemTopics.length)];
