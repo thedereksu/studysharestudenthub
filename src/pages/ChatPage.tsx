@@ -24,8 +24,8 @@ const ChatPage = () => {
 
     const init = async () => {
       const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
+        .from("public_profiles")
+        .select("id, name, school, bio, has_featured_badge, created_at, updated_at")
         .eq("id", userId)
         .single();
       setOtherProfile(profileData as Profile | null);

@@ -71,10 +71,9 @@ serve(async (req) => {
       throw new Error(`Failed to upload file: ${uploadError.message}`);
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabaseClient.storage
-      .from("materials")
-      .getPublicUrl(`sage-generated/${fileName}`);
+    // Store the storage path; signed URLs are issued at access time
+    // via the get-signed-urls edge function (bucket is private).
+    const storagePath = `sage-generated/${fileName}`;
 
     // 5. Insert record into materials table
     // We need a system user ID for Sage. For this, we will use a hardcoded UUID
@@ -94,7 +93,7 @@ serve(async (req) => {
         type: "Study Guide",
         exchange_type: "Free",
         description: description,
-        file_url: publicUrlData.publicUrl,
+        file_url: storagePath,
         file_type: "text/plain",
         is_ai_generated: true, // Set the new flag to true
       })
