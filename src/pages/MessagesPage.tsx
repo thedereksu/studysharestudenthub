@@ -24,18 +24,29 @@ const MessagesPage = () => {
 
     const { data } = await supabase
       .from("conversations")
-      .select("*, profiles_user1:profiles!conversations_user1_id_fkey(*), profiles_user2:profiles!conversations_user2_id_fkey(*)")
+      .select("*")
       .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
       .order("updated_at", { ascending: false });
 
     if (data) {
+      const otherIds = Array.from(new Set(data.map((c: any) =>
+        c.user1_id === user.id ? c.user2_id : c.user1_id
+      )));
+
+      const { data: profiles } = await supabase
+        .from("public_profiles")
+        .select("id, name")
+        .in("id", otherIds);
+
+      const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.name]));
+
       const mapped = data.map((c: any) => {
         const isUser1 = c.user1_id === user.id;
-        const other = isUser1 ? c.profiles_user2 : c.profiles_user1;
+        const otherId = isUser1 ? c.user2_id : c.user1_id;
         return {
           id: c.id,
-          otherUserId: isUser1 ? c.user2_id : c.user1_id,
-          otherName: other?.name || "Anonymous",
+          otherUserId: otherId,
+          otherName: nameMap.get(otherId) || "Anonymous",
           updatedAt: c.updated_at,
           unreadCount: isUser1 ? (c.user1_unread_count ?? 0) : (c.user2_unread_count ?? 0),
         };
