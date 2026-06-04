@@ -293,6 +293,18 @@ const HomePage = () => {
               </div>
             )}
 
+            {!user && !authLoading && (
+              <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-4 flex flex-col gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground mb-1">Join StudySwap Today</p>
+                  <p className="text-xs text-muted-foreground">Sign in to explore study materials, share your own content, and connect with students worldwide.</p>
+                </div>
+                <Button size="sm" onClick={() => navigate("/auth")} className="w-full">
+                  Sign In to View Materials
+                </Button>
+              </div>
+            )}
+
             {loadError && (
               <div className="mb-4 rounded-lg border border-border bg-card p-3 flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground">{loadError}</p>

@@ -229,7 +229,17 @@ const PostAIChatSidebar = ({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!input.trim() && attachments.length === 0) || !user) return;
+    if (!input.trim() && attachments.length === 0) return;
+    
+    if (!user) {
+      toast({
+        title: "Sign in to use Sage AI",
+        description: "Create an account to ask questions and get help from Sage AI.",
+        variant: "destructive",
+      });
+      onClose();
+      return;
+    }
 
     const userMessage = input.trim();
     setInput("");
