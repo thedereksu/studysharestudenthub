@@ -47,7 +47,7 @@ const PromoteTierMenu = ({ materialId, promoting, onPromote }: { materialId: str
 
 const exchangeBadgeClass: Record<string, string> = {
   Free: "bg-[hsl(var(--badge-free))] text-[hsl(var(--badge-free-text))]",
-  Trade: "bg-[hsl(var(--badge-trade))] text-[hsl(var(--badge-trade-text))]",
+
   Paid: "bg-[hsl(var(--badge-paid))] text-[hsl(var(--badge-paid-text))]",
 };
 
@@ -162,7 +162,7 @@ const ListingDetail = () => {
   const isOwner = user && material && user.id === material.uploader_id;
   const isFree = material?.exchange_type === "Free";
   const isPaid = material?.exchange_type === "Paid";
-  const isTrade = material?.exchange_type === "Trade";
+
   const canAccess = canAccessFiles;
 
   const avgRating = reviews.length > 0
@@ -369,19 +369,7 @@ const ListingDetail = () => {
             </Button>
           )}
 
-          {isTrade && !canAccess && (
-            <Button className="flex-1" onClick={handleOpenDM} disabled={!user}>
-              Propose Trade
-            </Button>
-          )}
 
-          {isTrade && canAccess && !isOwner && primarySignedFile?.file_url && (
-            <Button className="flex-1" asChild>
-              <a href={primarySignedFile.file_url} target="_blank" rel="noopener noreferrer">
-                {isImage ? <><Eye className="w-4 h-4 mr-1" /> View</> : <><Download className="w-4 h-4 mr-1" /> Download</>}
-              </a>
-            </Button>
-          )}
 
           {isOwner && (
             <>

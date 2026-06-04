@@ -15,7 +15,7 @@ import type { Material } from "@/lib/types";
 
 const exchangeBadgeClass: Record<string, string> = {
   Free: "bg-[hsl(var(--badge-free))] text-[hsl(var(--badge-free-text))]",
-  Trade: "bg-[hsl(var(--badge-trade))] text-[hsl(var(--badge-trade-text))]",
+
   Paid: "bg-[hsl(var(--badge-paid))] text-[hsl(var(--badge-paid-text))]",
 };
 

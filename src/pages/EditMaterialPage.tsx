@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Material, MaterialFile } from "@/lib/types";
 
-const exchangeOptions = ["Free", "Trade", "Paid"];
+const exchangeOptions = ["Free", "Paid"];
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
 
 interface SelectedFile {

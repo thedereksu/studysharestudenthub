@@ -91,4 +91,4 @@ export interface MaterialRequest {
 
 export const subjects = ["All", "Biology", "Chemistry", "Computer Science", "Economics", "Engineering", "English", "Environmental Science", "History", "Mathematics", "Physics", "Spanish"];
 export const materialTypes = ["All", "Notes", "Study Guide", "Practice Problems", "Summary", "Exam Prep"];
-export const exchangeTypes = ["All", "Free", "Trade", "Paid"];
+export const exchangeTypes = ["All", "Free", "Paid"];

@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import MagicUpload from "@/components/MagicUpload";
 
-const exchangeOptions = ["Free", "Trade", "Paid"];
+const exchangeOptions = ["Free", "Paid"];
 
 interface SelectedFile {
   file: File;
