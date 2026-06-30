@@ -157,7 +157,7 @@ const ListingCard = ({ material }: { material: Material }) => {
           <span className="text-[11px] text-muted-foreground flex items-center gap-1">
             {(material as any).is_ai_generated ? "Sage" : (material.profiles?.name || "Anonymous")}
             {material.profiles?.has_featured_badge && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary">⭐</span>
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary" title="Featured Contributor: Posted 3+ materials">⭐</span>
             )}
           </span>
         </div>

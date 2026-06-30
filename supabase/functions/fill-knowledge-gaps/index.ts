@@ -90,6 +90,7 @@ serve(async (req) => {
         uploader_id: SAGE_AI_USER_ID,
         title: title,
         subject: randomApChemTopic.subject,
+        topic: randomApChemTopic.topic,
         type: "Study Guide",
         exchange_type: "Free",
         description: description,
